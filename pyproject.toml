@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "MonDa"
+version = "0.1.0"
+description = "Monitoring Daemon"
+requires-python = ">=3.12"
+dependencies = [
+    "requests",
+    "art",
+    "redis",
+    "tzdata; sys_platform == 'win32'",
+]
+
+[tool.setuptools.packages.find]
+include = ["monda*"]
