@@ -64,8 +64,11 @@ Config file is resolved in this order:
    re-creates any that have died.
 
 Workers are decoupled from each other. The Hikvision pipeline uses a shared
-bounded `deque` (`HikEvents`) so a producer worker can hand events to future
-consumer workers without tight coupling.
+bounded `deque` (`HikEvents`) so a producer worker can hand events to consumer
+workers without tight coupling. When the consumer receives a VMD (motion
+detection) event it automatically fires a `J_HikAlertSnap` job that grabs a
+camera snapshot and sends it as an LED alert (rate-limited per camera).
+Unknown event types are forwarded to LED as well.
 
 ## Documentation
 
@@ -93,7 +96,7 @@ monda/
       W_HikConsumer.py                   # drains Redis → process_event
       worker_utils.py                    # start/validate helpers
     jobs/
-      J_HikAlertSnap.py                  # Hikvision snapshot job (stub)
+      J_HikAlertSnap.py                  # Hikvision snapshot → LED alert job
   utils/
     logger.py                            # logging setup
     misc.py                              # config loader, splash, signals
