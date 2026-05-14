@@ -13,7 +13,7 @@ sudo ./install.sh
 
 The installer:
 
-1. Checks for Python 3.12+ and `python3-venv`.
+1. Checks for Python 3.10+ and `python3-venv`.
 2. Creates a virtualenv at `/opt/monda/venv` and installs the package.
 3. Symlinks the `monda` command to `/usr/local/bin/monda`.
 4. Creates the config directory `/etc/monda/`.
@@ -35,7 +35,7 @@ journalctl -u monda -f
 ## Development (any platform)
 
 ```bash
-# 1. Create venv and install (Python 3.12+)
+# 1. Create venv and install (Python 3.10+)
 python3 -m venv .venv
 .venv/bin/pip install -e .          # Linux / macOS
 # .venv\Scripts\pip install -e .    # Windows

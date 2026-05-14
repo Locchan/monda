@@ -9,7 +9,7 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 VENV_DIR=/opt/monda/venv
 CONFIG_DIR=/etc/monda
-MIN_PYTHON="3.12"
+MIN_PYTHON="3.10"
 
 # If this checkout is a git repo and the local branch is behind its upstream,
 # offer to pull. If the user pulls, re-exec to pick up the new install.sh.
