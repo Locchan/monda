@@ -5,7 +5,7 @@ import signal
 import time
 
 from monda.classes.workers.worker_utils import validate_worker_config, start_worker_by_name, start_all_workers
-from monda.utils.logger import get_logger, setdebug
+from monda.utils.logger import get_logger, setdebug, setup_file_logging
 from monda.utils.misc import splash, read_config, signal_stop
 
 
@@ -17,6 +17,10 @@ def main():
 
     logger = get_logger()
     config = read_config()
+
+    log_file = config.get("LOG_FILE", {})
+    if log_file:
+        setup_file_logging(log_file)
 
     if "DEBUG" in config and config["DEBUG"]:
         setdebug()

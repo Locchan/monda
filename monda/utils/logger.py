@@ -1,18 +1,22 @@
 import io
 import logging
-import sys
 import os
-from os import W_OK
+import sys
 
 from monda.utils.globs import TERMINAL_POWERSHELL
-_log_format = "%(asctime)s [%(levelname)-7s] [%(threadName)-20s] %(module)-14s:%(lineno)-4d | %(message)s"
+
+_SYSTEMD = os.getenv("INVOCATION_ID") is not None
+
+_log_format_full = "%(asctime)s [%(levelname)-7s] [%(threadName)-20s] %(module)-14s:%(lineno)-4d | %(message)s"
+
+if _SYSTEMD:
+    _log_format_stdout = "[%(levelname)-7s] [%(threadName)-20s] %(module)-14s:%(lineno)-4d | %(message)s"
+    print("Systemd detected, altering log format.")
+else:
+    _log_format_stdout = _log_format_full
 
 TERM_FIXES_APPLIED = False
-
-if os.name == 'nt' or not os.access("/var/log/", W_OK):
-    log_path = "monda.log"
-else:
-    log_path = "/var/log/monda.log"
+_file_handler = None
 
 loggers = {}
 
@@ -26,7 +30,7 @@ def detect_terminal():
         return True
 
 
-def get_stream_handlers(level=logging.INFO):
+def _get_stdout_handler(level):
     global TERM_FIXES_APPLIED
 
     if not TERM_FIXES_APPLIED:
@@ -36,15 +40,21 @@ def get_stream_handlers(level=logging.INFO):
             sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
         TERM_FIXES_APPLIED = True
 
-    stream_handler = logging.StreamHandler(sys.stdout)
-    stream_handler.setLevel(level)
-    stream_handler.setFormatter(logging.Formatter(_log_format))
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(level)
+    handler.setFormatter(logging.Formatter(_log_format_stdout))
+    return handler
 
-    stream_handler_file = logging.FileHandler(log_path)
-    stream_handler_file.setLevel(level)
-    stream_handler_file.setFormatter(logging.Formatter(_log_format))
 
-    return stream_handler, stream_handler_file
+def setup_file_logging(path: str) -> None:
+    global _file_handler
+    if _file_handler is not None:
+        return
+    _file_handler = logging.FileHandler(path)
+    _file_handler.setLevel(default_level)
+    _file_handler.setFormatter(logging.Formatter(_log_format_full))
+    for a_logger in loggers.values():
+        a_logger.addHandler(_file_handler)
 
 
 def get_logger(name="MonDa", level=None):
@@ -57,8 +67,10 @@ def get_logger(name="MonDa", level=None):
     logger = logging.getLogger(name)
     logger.setLevel(level)
     logger.handlers = []
-    for ahandler in get_stream_handlers(level):
-        logger.addHandler(ahandler)
+    logger.addHandler(_get_stdout_handler(level))
+    if _file_handler is not None:
+        _file_handler.setLevel(level)
+        logger.addHandler(_file_handler)
     loggers[name] = logger
     return loggers[name]
 
