@@ -14,5 +14,8 @@ dependencies = [
     "tzdata; sys_platform == 'win32'",
 ]
 
+[project.scripts]
+monda = "monda.monda:main"
+
 [tool.setuptools.packages.find]
 include = ["monda*"]

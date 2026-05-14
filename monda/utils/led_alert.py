@@ -58,4 +58,4 @@ def send_alert(message: str, files: list[str] | None = None) -> None:
     with open(tmp_path, "w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2, ensure_ascii=False)
     os.replace(tmp_path, final_path)
-    logger.debug(f"Wrote LED alert: {final_path}")
+    logger.info(f"Wrote led alert: {message}. Files: {relative_paths}.")

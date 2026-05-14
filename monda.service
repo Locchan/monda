@@ -1,0 +1,14 @@
+[Unit]
+Description=MonDa — Monitoring Daemon
+After=network.target
+
+[Service]
+Type=simple
+Environment=PYTHONUNBUFFERED=1
+Environment=CFGFILE_PATH=/etc/monda/config.json
+ExecStart=%MONDA_BIN%
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

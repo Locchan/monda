@@ -4,8 +4,13 @@ MonDa reads a single JSON file at startup. The path is resolved in this order:
 
 1. `CFGFILE_PATH` environment variable, if set.
 2. `./config.json` (current working directory).
+3. `/etc/monda/config.json` (system-wide, Linux).
 
-If the file is missing, the program prints an error and exits with code 1.
+If no config file is found in any of these locations, the program prints an
+error and exits with code 1.
+
+When installed via `install.sh`, the systemd unit sets
+`CFGFILE_PATH=/etc/monda/config.json`.
 
 The config is loaded **once** and cached in memory. `read_config(reload=True)`
 forces a re-read; `write_config(data)` persists changes and reloads.
@@ -19,7 +24,9 @@ forces a re-read; `write_config(data)` persists changes and reloads.
 | `TZ`            | string | no       | `"UTC"` | IANA timezone applied to parsed event timestamps (e.g. `Europe/Minsk`).  |
 | `HIK_CONFIG`    | object | no       | —       | Hikvision subsystem settings. See below. Omit if you don't run Hik workers. |
 | `REDIS`         | object | no       | —       | Single Redis endpoint. Required if any Hik worker is enabled. See below.   |
+| `LED`           | object | no       | —       | Optional outbox integration. See below. Omit to fall back to stderr alerts. |
 | `WORKER_CONFIG` | object | no       | `{}`    | Worker instances to start. See [workers.md](workers.md) for layout.      |
+| `JOB_CONFIG`    | object | no       | `{}`    | Static job config. See [jobs.md](jobs.md) for layout and merge semantics. |
 
 > On Windows, set `TZ` and ensure `tzdata` is installed in the venv —
 > CPython's `zoneinfo` has no system database to fall back on. `pyproject.toml`
@@ -32,7 +39,8 @@ defaults — MonDa starts and runs fine without any Hikvision workers.
 
 | Key                    | Type   | Required          | Default | Purpose                                                          |
 |------------------------|--------|-------------------|---------|------------------------------------------------------------------|
-| `CREDENTIALS`          | object | if used by worker | `{}`    | Named credential entries referenced by `WORKER_CONFIG` instances. |
+| `CREDENTIALS`          | object | if used by device  | `{}`    | Named credential entries referenced by `HIK_CONFIG.DEVICES.<NAME>.CREDENTIALS`. |
+| `DEVICES`              | object | if running a Hik producer | `{}` | Named device entries. A `W_HikProducer` instance picks one by name via its `DEVICE` field. |
 | `EVENT_DEQUE_MAX_SIZE` | int    | no                | `30`    | Cap on the shared `HikEvents` deque. Older events are dropped when full and a warning is logged. |
 | `IGNORED_EVENTS`       | object | no                | `{}`    | Filter map: `{eventType: [eventState, ...]}`. Matching events are dropped *before* hitting Redis, and again on the consumer side. Empty state list = ignore every state of that event type. See [hik.md](hik.md). |
 
@@ -43,7 +51,19 @@ defaults — MonDa starts and runs fine without any Hikvision workers.
 | `USERNAME` | string | yes      | HTTP Digest username for device. |
 | `PASSWORD` | string | yes      | HTTP Digest password for device. |
 
-A worker references a credential entry by key via its own `CREDENTIALS` field.
+A device references a credential entry by key via its own `CREDENTIALS` field.
+
+### `HIK_CONFIG.DEVICES.<NAME>`
+
+| Key           | Type   | Required | Default  | Purpose                                                |
+|---------------|--------|----------|----------|--------------------------------------------------------|
+| `ADDRESS`     | string | yes      | —        | Device IP or hostname.                                 |
+| `CREDENTIALS` | string | yes      | —        | Name of an entry under `HIK_CONFIG.CREDENTIALS`.       |
+| `PORT`        | string | no       | `"80"`   | Device port.                                           |
+| `PROTOCOL`    | string | no       | `"http"` | `http` or `https`.                                     |
+
+A `W_HikProducer` instance picks one device by name via its `DEVICE` field
+(see [hik.md](hik.md)).
 
 ## `REDIS` (optional)
 
@@ -65,6 +85,19 @@ Socket timeouts default to 5 seconds.
 The Hik subsystem uses a single Redis LIST keyed `hik_events` for the
 producer→consumer pipeline. See [hik.md](hik.md) for details.
 
+## `LED` (optional)
+
+Drop-folder integration with the external `led` project. When configured,
+`monda.utils.led_alert.send_alert(message, files)` writes a JSON descriptor
+into `BASEDIR` for `led` to pick up. When omitted, the same call falls back
+to stderr (and deletes any attached files instead of leaking them).
+
+| Key       | Type   | Required | Default | Purpose                                            |
+|-----------|--------|----------|---------|----------------------------------------------------|
+| `BASEDIR` | string | yes      | —       | Directory `led` watches. Created if missing.       |
+
+See [led.md](led.md) for the on-disk wire format and helper API.
+
 ## `WORKER_CONFIG`
 
 A dict keyed by **worker class name** (e.g. `W_HikProducer`). Each value is a
@@ -80,11 +113,26 @@ Common per-instance fields recognised by the base `Worker`:
 Per-worker-type fields are documented alongside each worker. For
 `W_HikProducer` see [hik.md](hik.md).
 
+## `JOB_CONFIG` (optional)
+
+Same layout as `WORKER_CONFIG`: keyed by **job class name**, then by **instance
+name**. Provides static defaults for jobs. At `initialize()` time, the static
+config is merged with the runtime dict passed to the job's constructor —
+runtime values win on key conflict. See [jobs.md](jobs.md) for details.
+
+```json
+"JOB_CONFIG": {
+  "J_HikAlertSnap": {
+    "front_cam": { "HIK_DEVICE": "cam_front", "CHANNEL": "101" }
+  }
+}
+```
+
 ## Environment variables
 
 | Variable        | Purpose                                                                |
 |-----------------|------------------------------------------------------------------------|
-| `CFGFILE_PATH`  | Override the config file location.                                     |
+| `CFGFILE_PATH`  | Override the config file location. Set by the systemd unit to `/etc/monda/config.json`. |
 | `PSModulePath`  | Read by the terminal detector to apply Windows UTF-8 stdout fixes. Not user-set. |
 
 ## Example
@@ -98,6 +146,9 @@ Per-worker-type fields are documented alongside each worker. For
     "CREDENTIALS": {
       "DACHA": { "USERNAME": "admin", "PASSWORD": "secret" }
     },
+    "DEVICES": {
+      "reg_dacha": { "ADDRESS": "10.71.1.128", "CREDENTIALS": "DACHA" }
+    },
     "EVENT_DEQUE_MAX_SIZE": 30
   },
   "REDIS": {
@@ -105,17 +156,21 @@ Per-worker-type fields are documented alongside each worker. For
     "PORT": 6379,
     "DB": 0
   },
+  "LED": {
+    "BASEDIR": "/var/lib/led/inbox"
+  },
   "WORKER_CONFIG": {
     "W_HikProducer": {
-      "dacha": {
-        "ADDRESS": "10.71.1.128",
-        "PORT": "80",
-        "CREDENTIALS": "DACHA",
-        "INTERVAL": 5
-      }
+      "reg_dacha": { "DEVICE": "reg_dacha", "INTERVAL": 5 }
     },
     "W_HikConsumer": {
       "main": { "INTERVAL": 3 }
+    }
+  },
+  "JOB_CONFIG": {
+    "J_HikAlertSnap": {
+      "ALERT_PERIOD": 15,
+      "reg_dacha": { "HIK_DEVICE": "reg_dacha" }
     }
   }
 }

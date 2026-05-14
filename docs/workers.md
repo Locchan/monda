@@ -20,7 +20,7 @@ construct  →  initialize()  →  run()  →  _run() loop  →  (death)  →  r
 3. **`run()`** spawns a daemon thread named `<short_name>-<instance>` and
    returns it. The thread executes `_run()`.
 4. **`_run()`** loops: call `_work()`, sleep `interval` seconds, repeat. Any
-   exception is logged and ends the loop (the thread dies and `main.py`
+   exception is logged and ends the loop (the thread dies and the main loop
    resurrects it on the next health check).
 
 ## Required class attributes
@@ -75,7 +75,7 @@ construct  →  initialize()  →  run()  →  _run() loop  →  (death)  →  r
    ```json
    "WORKER_CONFIG": {
      "W_MyThing": {
-       "my-instance": { "FOO": "bar", "INTERVAL": 30 }
+       "my_instance": { "FOO": "bar", "INTERVAL": 30 }
      }
    }
    ```
@@ -85,11 +85,10 @@ construct  →  initialize()  →  run()  →  _run() loop  →  (death)  →  r
 - Worker **class name** must start with `W_` and contain no `-`. Enforced in
   `Worker.__init__` (the process exits if violated).
 - Worker **instance name** must contain no `-` and must be unique across all
-  worker types (the resurrection logic in `main.py` parses it back out of the
-  thread name).
+  worker types (the resurrection logic parses it back out of the thread name).
 
 ## Resurrection
 
-`main.py` walks `worker_threads` every 5 seconds. If a thread isn't alive, it
-calls `start_worker_by_name` with the instance name pulled out of the dead
+The main loop walks `worker_threads` every 5 seconds. If a thread isn't alive,
+it calls `start_worker_by_name` with the instance name pulled out of the dead
 thread's name. The new thread replaces the dead one in the list.

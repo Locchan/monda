@@ -52,7 +52,7 @@ Hik device ──HTTP alertStream──▶ W_HikProducer ──RPUSH──▶ Re
 | Piece                                | Role                                                                  |
 |--------------------------------------|-----------------------------------------------------------------------|
 | `W_HikProducer`                      | Worker. Connects to a device's `alertStream` and parses XML events into `HikEvent`s, appending them to the shared deque. |
-| `W_HikConsumer`                      | Worker. Pops `HikEvent`s from the shared deque and dispatches them via `process_event` (stub). |
+| `W_HikConsumer`                      | Worker. Pops `HikEvent`s from the Redis LIST and dispatches them via `process_event` (stub). |
 | `HikEvent`                           | Data class. One parsed alert: `name`, `state`, `date` (timezone-aware), `source`. |
 | `HikEvents` (in `workers/__init__.py`) | Shared bounded `collections.deque` that producers append to and consumers drain. |
 | `HIK_EVENT_DEQUE_MAX_SIZE`           | Resolved deque capacity. Producers compare against this before appending so they can log "queue is full — bleeding data" before silent drop. |
@@ -61,13 +61,13 @@ Hik device ──HTTP alertStream──▶ W_HikProducer ──RPUSH──▶ Re
 
 Each instance lives under `WORKER_CONFIG.W_HikProducer.<instance_name>`.
 
-| Key           | Type   | Required | Default  | Purpose                                                |
-|---------------|--------|----------|----------|--------------------------------------------------------|
-| `ADDRESS`     | string | yes      | —        | Device IP or hostname.                                 |
-| `CREDENTIALS` | string | yes      | —        | Name of an entry under `HIK_CONFIG.CREDENTIALS`.       |
-| `PORT`        | string | no       | `"80"`   | Device port.                                           |
-| `PROTOCOL`    | string | no       | `"http"` | `http` or `https`.                                     |
-| `INTERVAL`    | int    | no       | `10`     | Seconds between reconnect attempts when the stream ends. |
+| Key        | Type   | Required | Default | Purpose                                                          |
+|------------|--------|----------|---------|------------------------------------------------------------------|
+| `DEVICE`   | string | yes      | —       | Name of an entry under `HIK_CONFIG.DEVICES`.                     |
+| `INTERVAL` | int    | no       | `10`    | Seconds between reconnect attempts when the stream ends.         |
+
+The referenced device entry in `HIK_CONFIG.DEVICES` provides `ADDRESS`,
+`CREDENTIALS`, `PORT`, and `PROTOCOL` (see [config.md](config.md#hik_configdevicesname)).
 
 The worker opens `<proto>://<ADDRESS>:<PORT>/ISAPI/Event/notification/alertStream`
 with HTTP Digest auth and reads it as a long-lived multipart stream.
@@ -123,9 +123,13 @@ on a single consumer, well above typical Hikvision event rates.
 No required config beyond what `Worker` provides. `INTERVAL` controls poll
 rate. The consumer uses the shared process-wide Redis client.
 
-`process_event` filters via `known_event_types` and `ignored_event_statuses`
-class attributes. Unknown event types are logged at WARNING and otherwise
-dropped. Extend `process_event` to actually forward/store events.
+`process_event` filters via `known_event_types` and `is_ignored_event`.
+Unknown event types are logged at WARNING and dropped.
+
+**VMD handling:** when `process_event` receives a `VMD` (motion detection)
+event, it resolves the source producer's `DEVICE` from `WORKER_CONFIG` and
+fires a `J_HikAlertSnap` job — rate-limited to one snapshot per
+`ALERT_PERIOD` seconds per camera (see [jobs.md](jobs.md#j_hikalertsnap)).
 
 ## Threading note
 

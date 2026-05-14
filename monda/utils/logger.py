@@ -5,10 +5,6 @@ import os
 from os import W_OK
 
 from monda.utils.globs import TERMINAL_POWERSHELL
-from monda.utils.misc import read_config
-
-config = read_config()
-
 _log_format = "%(asctime)s [%(levelname)-7s] [%(threadName)-20s] %(module)-14s:%(lineno)-4d | %(message)s"
 
 TERM_FIXES_APPLIED = False

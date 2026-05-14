@@ -20,7 +20,7 @@ class W_HikProducer(Worker):
     worker_class_name = "W_HikProducer"
     worker_class_name_short = "W:HikProd"
 
-    required_config_entries = ["ADDRESS", "CREDENTIALS"]
+    required_config_entries = ["DEVICE"]
 
     def __init__(self, name: str, interval_s: int):
         super().__init__(name, interval_s)
@@ -77,9 +77,19 @@ class W_HikProducer(Worker):
 
 
     def _initialize(self):
-        full_config = read_config()
-        creds_key = self.config["CREDENTIALS"]
-        hik_creds = full_config.get("HIK_CONFIG", {}).get("CREDENTIALS", {})
+        hik_config = read_config().get("HIK_CONFIG", {})
+
+        device_key = self.config["DEVICE"]
+        devices = hik_config.get("DEVICES", {})
+        if device_key not in devices:
+            raise RuntimeError(f"Device '{device_key}' not found in HIK_CONFIG.DEVICES.")
+        device = devices[device_key]
+        for required in ("ADDRESS", "CREDENTIALS"):
+            if required not in device:
+                raise RuntimeError(f"HIK_CONFIG.DEVICES.{device_key} is missing '{required}'.")
+
+        creds_key = device["CREDENTIALS"]
+        hik_creds = hik_config.get("CREDENTIALS", {})
         if creds_key not in hik_creds:
             raise RuntimeError(f"Credentials '{creds_key}' not found in HIK_CONFIG.CREDENTIALS.")
         creds = hik_creds[creds_key]
@@ -88,10 +98,10 @@ class W_HikProducer(Worker):
         get_redis_client()
 
         self.auth = HTTPDigestAuth(creds["USERNAME"], creds["PASSWORD"])
-        proto = self.config.get("PROTOCOL", "http")
-        port = self.config.get("PORT", "80")
+        proto = device.get("PROTOCOL", "http")
+        port = device.get("PORT", "80")
         self.alert_url = "{}://{}:{}/ISAPI/Event/notification/alertStream".format(
-            proto, self.config["ADDRESS"], port
+            proto, device["ADDRESS"], port
         )
         return True
 

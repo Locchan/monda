@@ -5,25 +5,57 @@ MonDa is a lightweight Python daemon that runs a configurable set of long-lived
 alert stream). Each worker runs in its own thread; the main loop watches them
 and resurrects any that die.
 
-## Quickstart
+## Installation (Linux)
 
-```powershell
-# 1. Create venv and install (Python 3.12+)
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -e .
-
-# 2. Edit config.json (see docs/config.md)
-
-# 3. Run
-.\.venv\Scripts\python.exe main.py
+```bash
+sudo ./install.sh
 ```
 
-By default the config is read from `./config.json`. Override with the
-`CFGFILE_PATH` environment variable.
+The installer:
+
+1. Checks for Python 3.12+ and `python3-venv`.
+2. Creates a virtualenv at `/opt/monda/venv` and installs the package.
+3. Symlinks the `monda` command to `/usr/local/bin/monda`.
+4. Creates the config directory `/etc/monda/`.
+5. Installs the `monda.service` systemd unit.
+
+After installation:
+
+```bash
+# 1. Create config (see docs/config.md)
+sudo nano /etc/monda/config.json
+
+# 2. Enable and start
+sudo systemctl enable --now monda
+
+# 3. Watch logs
+journalctl -u monda -f
+```
+
+## Development (any platform)
+
+```bash
+# 1. Create venv and install (Python 3.12+)
+python3 -m venv .venv
+.venv/bin/pip install -e .          # Linux / macOS
+# .venv\Scripts\pip install -e .    # Windows
+
+# 2. Create config.json (see docs/config.md)
+
+# 3. Run
+monda
+```
+
+Config file is resolved in this order:
+
+1. `CFGFILE_PATH` environment variable, if set.
+2. `./config.json` (current working directory).
+3. `/etc/monda/config.json` (system-wide, Linux).
 
 ## How it works
 
-1. `main.py` loads the config and applies the debug flag.
+1. `monda.py` registers signal handlers, loads the config, and applies the
+   debug flag.
 2. `validate_worker_config` checks for duplicate worker names across types.
 3. `start_all_workers` instantiates every worker declared under
    `WORKER_CONFIG`, calls `initialize()` (which reads its slice of config),
@@ -39,24 +71,33 @@ consumer workers without tight coupling.
 
 - [docs/config.md](docs/config.md) — every config field, defaults, env vars.
 - [docs/workers.md](docs/workers.md) — worker lifecycle, how to write a new one.
+- [docs/jobs.md](docs/jobs.md) — Job base class for one-shot tasks.
 - [docs/hik.md](docs/hik.md) — Hikvision producer + event model (optional subsystem).
+- [docs/led.md](docs/led.md) — drop-folder alert integration with the `led` project.
 
 ## Project layout
 
 ```
-main.py                                  # entrypoint
-config.json                              # runtime config
+install.sh                               # Linux installer (run as root)
+monda.service                            # systemd unit template
 monda/
+  monda.py                               # entrypoint (main function)
   classes/
     base/
-      Worker.py                          # abstract base worker
+      Worker.py                          # abstract base worker (long-lived, threaded)
+      Job.py                             # abstract base job (one-shot, fire-and-forget)
       Hik/HikEvent.py                    # Hikvision event model
     workers/
-      __init__.py                        # ENABLED_WORKERS, shared HikEvents deque
-      W_HikProducer.py                   # consumes Hikvision alertStream
+      __init__.py                        # ENABLED_WORKERS, deque, ignored-event helper
+      W_HikProducer.py                   # consumes Hikvision alertStream → Redis
+      W_HikConsumer.py                   # drains Redis → process_event
       worker_utils.py                    # start/validate helpers
+    jobs/
+      J_HikAlertSnap.py                  # Hikvision snapshot job (stub)
   utils/
     logger.py                            # logging setup
     misc.py                              # config loader, splash, signals
+    redis_client.py                      # process-wide Redis singleton
+    led_alert.py                         # optional drop-folder alert integration
     globs.py                             # constants
 ```

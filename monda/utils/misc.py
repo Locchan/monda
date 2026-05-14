@@ -9,15 +9,28 @@ CONFIG = {}
 
 # This will read config only once on startup and then return this every time it is called.
 #  Passing reload as True will force the function to actually re-read the config from disk.
-def read_config(filepath="config.json", reload=False):
+def read_config(filepath=None, reload=False):
     global CONFIG
 
-    if "CFGFILE_PATH" in os.environ:
-        filepath = os.environ["CFGFILE_PATH"]
+    if filepath is None:
+        if "CFGFILE_PATH" in os.environ:
+            filepath = os.environ["CFGFILE_PATH"]
+        elif os.path.exists("config.json"):
+            filepath = "config.json"
+        elif os.path.exists("/etc/monda/config.json"):
+            filepath = "/etc/monda/config.json"
+        else:
+            filepath = "config.json"
 
     if not os.path.exists(filepath):
         print(
-            "Config file not found. The file should reside in path provided by CFGFILE_PATH environment variable or in './config.json'.")
+            "Config file not found. Searched (in order):")
+        print(
+            "  1. CFGFILE_PATH environment variable")
+        print(
+            "  2. ./config.json")
+        print(
+            "  3. /etc/monda/config.json")
         print(f"Expected to find the config file at '{filepath}'")
         exit(1)
     if CONFIG == {} and not reload:
@@ -34,9 +47,12 @@ def read_config(filepath="config.json", reload=False):
         return CONFIG
 
 
-def write_config(data, filepath="config.json"):
-    if "CFGFILE_PATH" in os.environ:
-        filepath = os.environ["CFGFILE_PATH"]
+def write_config(data, filepath=None):
+    if filepath is None:
+        if "CFGFILE_PATH" in os.environ:
+            filepath = os.environ["CFGFILE_PATH"]
+        else:
+            filepath = "config.json"
     # shutil.copyfile(filepath, filepath + f"{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}" + ".bak")
     with open(filepath, "w", encoding="utf-8") as config_file:
         json.dump(data, config_file, indent=2)
