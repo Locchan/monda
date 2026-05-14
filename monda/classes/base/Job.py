@@ -9,6 +9,8 @@ logger = get_logger()
 
 
 def _format_duration(seconds: float) -> str:
+    if seconds < 3:
+        return f"{seconds * 1000:.0f}ms"
     total = int(seconds)
     h, rem = divmod(total, 3600)
     m, s = divmod(rem, 60)
@@ -59,7 +61,7 @@ class Job:
         return self.initialized
 
     def _run(self) -> None:
-        logger.info(f"Job '{self.name}' starting")
+        logger.info(f"[{self.__class__.__name__}] '{self.name}' starting...")
         started = time.monotonic()
         try:
             self._work()
@@ -72,12 +74,12 @@ class Job:
 
     def run(self) -> Thread | None:
         if not self.initialized:
-            logger.error(f"Could not run job '{self.name}': not initialized")
+            logger.error(f"Could not run [{self.__class__.__name__}] '{self.name}': not initialized")
             return None
         try:
             job_thread = Thread(target=self._run, daemon=True, name=f"{self.job_class_name_short}-{self.name}")
             job_thread.start()
             return job_thread
         except BaseException as e:
-            logger.error(f"Could not create job thread: {e}")
+            logger.error(f"Could not create job thread for [{self.__class__.__name__}] '{self.name}': {e}")
             return None

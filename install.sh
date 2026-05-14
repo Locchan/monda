@@ -39,9 +39,13 @@ maybe_self_update() {
         return 0
     fi
 
+    local local_date upstream_date
+    local_date="$(git -C "$SCRIPT_DIR" log -1 --format='%ci' HEAD)"
+    upstream_date="$(git -C "$SCRIPT_DIR" log -1 --format='%ci' "$upstream")"
+
     echo "Local checkout is behind $upstream:"
-    echo "  local:    $local_head"
-    echo "  upstream: $upstream_head"
+    echo "  local:    $local_head ($local_date)"
+    echo "  upstream: $upstream_head ($upstream_date)"
     local answer
     read -rp "Run 'git pull --ff-only' before installing? [y/N]: " answer
     case "$answer" in

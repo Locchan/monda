@@ -21,6 +21,7 @@ forces a re-read; `write_config(data)` persists changes and reloads.
 |-----------------|--------|----------|---------|--------------------------------------------------------------------------|
 | `NAME`          | string | no       | —       | Display name. Currently informational only.                              |
 | `DEBUG`         | int    | no       | `0`     | If truthy, enables `DEBUG`-level logging and prints the loaded config.   |
+| `LOG_FILE`      | string | no       | —       | Path to a log file. If omitted, logs go to stdout only.                  |
 | `TZ`            | string | no       | `"UTC"` | IANA timezone applied to parsed event timestamps (e.g. `Europe/Minsk`).  |
 | `HIK_CONFIG`    | object | no       | —       | Hikvision subsystem settings. See below. Omit if you don't run Hik workers. |
 | `REDIS`         | object | no       | —       | Single Redis endpoint. Required if any Hik worker is enabled. See below.   |
