@@ -69,7 +69,7 @@ def signal_stop(_signo, _stack_frame):
 def splash():
     from monda.utils.logger import get_logger
     logger = get_logger()
-    splash_text = text2art(f"MonDa", font="Chunky")
+    splash_text = text2art("MonDa", font="Chunky")
     splash_text = splash_text.strip()
     lines = splash_text.split("\n")
     for aline in lines:

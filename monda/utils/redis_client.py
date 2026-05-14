@@ -21,7 +21,7 @@ def get_redis_client() -> redis.Redis:
         cfg = read_config().get("REDIS")
         if not cfg or "HOST" not in cfg:
             raise RuntimeError("REDIS section missing or has no HOST in config.")
-        logger.info(f"Connected/Reconnected to redis at {cfg["HOST"]}")
+        logger.info(f"Connected/Reconnected to redis at {cfg['HOST']}")
         _client = redis.Redis(
             host=cfg["HOST"],
             port=int(cfg.get("PORT", 6379)),
