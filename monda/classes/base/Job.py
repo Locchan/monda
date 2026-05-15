@@ -28,6 +28,7 @@ class Job:
     job_class_name = "Job"
     job_class_name_short = "J:"
     required_config_entries = []
+    disabled_jobs = []
 
     def __init__(self, name: str, job_config: dict | None = None):
         if "-" in self.job_class_name or '-' in name:
@@ -40,17 +41,12 @@ class Job:
         self._runtime_config = job_config or {}
         self.config = {}
         self.initialized = False
-        self._enabled = True
 
     def _work(self):
         logger.error(f"_work() method is not implemented in {self.__class__.__name__}")
 
     def _initialize(self):
         pass
-
-    def _toggle(self):
-        self._enabled = not self._enabled
-        logger.info(f"[{self.__class__.__name__}] '{self.name}' " + ("has been enabled" if self._enabled else "has been disabled"))
 
     def initialize(self) -> bool:
         job_type_config = (read_config()
@@ -60,8 +56,17 @@ class Job:
         self.config = {**static_config, **self._runtime_config}
 
         enabled_in_config = job_type_config.get("ENABLED", True)
-        if enabled_in_config != self._enabled:
-            self._toggle()
+        if not enabled_in_config:
+            if self.__class__ not in self.disabled_jobs:
+                self.disabled_jobs.append(self.__class__)
+                logger.info(f"[{self.__class__.__name__}] has been disabled.")
+        else:
+            if self.__class__ in self.disabled_jobs:
+                self.disabled_jobs.remove(self.__class__)
+                logger.info(f"[{self.__class__.__name__}] has been enabled.")
+
+        if self.__class__ in self.disabled_jobs:
+            return True
 
         missing_entries = [k for k in self.required_config_entries if k not in self.config]
         if missing_entries:
@@ -83,7 +88,7 @@ class Job:
         logger.info(f"Job '{self.name}' finished in {elapsed}")
 
     def run(self) -> Thread | None:
-        if not self._enabled:
+        if self.__class__ in self.disabled_jobs:
             return None
         if not self.initialized:
             logger.error(f"Could not run [{self.__class__.__name__}] '{self.name}': not initialized")
