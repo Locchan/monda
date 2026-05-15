@@ -50,7 +50,7 @@ class Job:
 
     def _toggle(self):
         self._enabled = not self._enabled
-        logger.info(f"[{self.__class__.__name__}] '{self.name}' " + "has been enabled" if self._enabled else "has been disabled")
+        logger.info(f"[{self.__class__.__name__}] '{self.name}' " + ("has been enabled" if self._enabled else "has been disabled"))
 
     def initialize(self) -> bool:
         job_type_config = (read_config()
