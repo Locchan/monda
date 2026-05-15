@@ -40,13 +40,17 @@ class Job:
         self._runtime_config = job_config or {}
         self.config = {}
         self.initialized = False
-        self._disabled = False
+        self._enabled = True
 
     def _work(self):
         logger.error(f"_work() method is not implemented in {self.__class__.__name__}")
 
     def _initialize(self):
         pass
+
+    def _toggle(self):
+        self._enabled = not self._enabled
+        logger.info(f"[{self.__class__.__name__}] '{self.name}' " + "has been enabled" if self._enabled else "has been disabled")
 
     def initialize(self) -> bool:
         job_type_config = (read_config()
@@ -55,12 +59,9 @@ class Job:
         static_config = job_type_config.get(self.name, {})
         self.config = {**static_config, **self._runtime_config}
 
-        enabled = job_type_config.get("ENABLED", True)
-        if not enabled:
-            self.initialized = True
-            self._disabled = True
-            return True
-        self._disabled = False
+        enabled_in_config = job_type_config.get("ENABLED", True)
+        if enabled_in_config != self._enabled:
+            self._toggle()
 
         missing_entries = [k for k in self.required_config_entries if k not in self.config]
         if missing_entries:
@@ -82,7 +83,7 @@ class Job:
         logger.info(f"Job '{self.name}' finished in {elapsed}")
 
     def run(self) -> Thread | None:
-        if self._disabled:
+        if not self._enabled:
             return None
         if not self.initialized:
             logger.error(f"Could not run [{self.__class__.__name__}] '{self.name}': not initialized")
