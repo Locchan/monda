@@ -24,6 +24,8 @@ class W_HikProducer(Worker):
 
     def __init__(self, name: str, interval_s: int):
         super().__init__(name, interval_s)
+        self.username = None
+        self.password = None
         self.auth = None
         self.alert_url = None
 
@@ -59,7 +61,7 @@ class W_HikProducer(Worker):
     def _stream_alerts(self):
         with requests.get(self.alert_url, auth=self.auth, stream=True, timeout=None) as response:
             if response.status_code != 200:
-                logger.warning(f"Could not connect to alert stream ({self.alert_url}): {response.status_code}")
+                logger.warning(f"Could not connect to alert stream ({self.alert_url}) as '{self.username}': {response.status_code}")
                 return
             logger.info("Connected to alert stream.")
 
@@ -95,11 +97,13 @@ class W_HikProducer(Worker):
         if creds_key not in hik_creds:
             raise RuntimeError(f"Credentials '{creds_key}' not found in HIK_CONFIG.CREDENTIALS.")
         creds = hik_creds[creds_key]
+        self.username = creds["USERNAME"]
+        self.password = creds["PASSWORD"]
 
         # Validate REDIS section exists and is reachable enough to build a client.
         get_redis_client()
 
-        self.auth = HTTPDigestAuth(creds["USERNAME"], creds["PASSWORD"])
+        self.auth = HTTPDigestAuth(self.username, self.password)
         proto = device.get("PROTOCOL", "http")
         port = device.get("PORT", "80")
         self.alert_url = "{}://{}:{}/ISAPI/Event/notification/alertStream".format(
