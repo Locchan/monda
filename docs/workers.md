@@ -70,14 +70,14 @@ construct  →  initialize()  →  run()  →  _run() loop  →  (death)  →  r
    }
    ```
 
-3. Add an instance to `config.json`:
+3. Add an instance to `config.yaml`:
 
-   ```json
-   "WORKER_CONFIG": {
-     "W_MyThing": {
-       "my_instance": { "FOO": "bar", "INTERVAL": 30 }
-     }
-   }
+   ```yaml
+   WORKER_CONFIG:
+     W_MyThing:
+       my_instance:
+         FOO: bar
+         INTERVAL: 30
    ```
 
 ## Naming rules

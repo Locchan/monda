@@ -5,23 +5,18 @@ from zoneinfo import ZoneInfo
 from monda.utils.logger import get_logger
 from monda.utils.misc import read_config
 
-config = read_config()
 logger = get_logger()
-if "TZ" in config:
-    timezone = config["TZ"]
-else:
-    timezone = "UTC"
-
-logger.info(f"Using timezone: {timezone}")
 
 
 class HikEvent:
     NS = {"h": "http://www.hikvision.com/ver20/XMLSchema"}
 
     def __init__(self, name, state, date, source):
+        config = read_config()
         self.name = name
         self.state = state
         self.source = source
+        timezone = config.get("TZ", "UTC")
         dt = datetime.datetime.fromisoformat(date)
         tz = ZoneInfo(timezone)
         self.date = dt.replace(tzinfo=tz) if dt.tzinfo is None else dt.astimezone(tz)

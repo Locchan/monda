@@ -124,7 +124,7 @@ No required config beyond what `Worker` provides. `INTERVAL` controls poll
 rate. The consumer uses the shared process-wide Redis client.
 
 `process_event` filters via `known_event_types` and `is_ignored_event`.
-Unknown event types are logged at WARNING and dropped.
+Unknown event types are forwarded to LED as alerts.
 
 **VMD handling:** when `process_event` receives a `VMD` (motion detection)
 event, it resolves the source producer's `DEVICE` from `WORKER_CONFIG` and

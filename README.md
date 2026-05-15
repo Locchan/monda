@@ -23,7 +23,7 @@ After installation:
 
 ```bash
 # 1. Create config (see docs/config.md)
-sudo nano /etc/monda/config.json
+sudo nano /etc/monda/config.yaml
 
 # 2. Enable and start
 sudo systemctl enable --now monda
@@ -40,7 +40,7 @@ python3 -m venv .venv
 .venv/bin/pip install -e .          # Linux / macOS
 # .venv\Scripts\pip install -e .    # Windows
 
-# 2. Create config.json (see docs/config.md)
+# 2. Create config.yaml (see docs/config.md)
 
 # 3. Run
 monda
@@ -49,8 +49,8 @@ monda
 Config file is resolved in this order:
 
 1. `CFGFILE_PATH` environment variable, if set.
-2. `./config.json` (current working directory).
-3. `/etc/monda/config.json` (system-wide, Linux).
+2. `./config.yaml` (current working directory).
+3. `/etc/monda/config.yaml` (system-wide, Linux).
 
 ## How it works
 
@@ -92,9 +92,11 @@ monda/
       Hik/HikEvent.py                    # Hikvision event model
     workers/
       __init__.py                        # ENABLED_WORKERS, deque, ignored-event helper
-      W_HikProducer.py                   # consumes Hikvision alertStream → Redis
-      W_HikConsumer.py                   # drains Redis → process_event
       worker_utils.py                    # start/validate helpers
+      hik/
+        W_HikProducer.py                 # consumes Hikvision alertStream → Redis
+        W_HikConsumer.py                 # drains Redis → process_event
+      telegram/                          # Telegram bot workers
     jobs/
       J_HikAlertSnap.py                  # Hikvision snapshot → LED alert job
   utils/

@@ -6,7 +6,7 @@ from requests.auth import HTTPDigestAuth
 
 from monda.classes.base.Worker import Worker
 from monda.classes.base.Hik.HikEvent import HikEvent
-from monda.classes.workers import HikEvents, HIK_EVENT_DEQUE_MAX_SIZE, HIK_EVENTS_TOPIC, is_ignored_event
+from monda.classes.workers import HikEvents, HIK_EVENTS_TOPIC, is_ignored_event
 from monda.utils.logger import get_logger
 from monda.utils.misc import read_config
 from monda.utils.redis_client import get_redis_client, reset_redis_client
@@ -31,10 +31,12 @@ class W_HikProducer(Worker):
         event = HikEvent.from_xml(alert, source=self.name)
         if is_ignored_event(event.name, event.state):
             return
-        if len(HikEvents) > (HIK_EVENT_DEQUE_MAX_SIZE / 2):
-            logger.warn(f"HikEvent queue is more than half-full ({HIK_EVENT_DEQUE_MAX_SIZE}).")
-        elif len(HikEvents) == HIK_EVENT_DEQUE_MAX_SIZE:
-            logger.error(f"HikEvent queue is full ({HIK_EVENT_DEQUE_MAX_SIZE}). We're bleeding data!")
+        config = read_config()
+        max_size = config.get("HIK_CONFIG", {}).get("EVENT_DEQUE_MAX_SIZE", 30)
+        if len(HikEvents) > (max_size / 2):
+            logger.warn(f"HikEvent queue is more than half-full ({max_size}).")
+        elif len(HikEvents) == max_size:
+            logger.error(f"HikEvent queue is full ({max_size}). We're bleeding data!")
         HikEvents.append(event)
         self._drain_to_redis()
 

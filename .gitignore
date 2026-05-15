@@ -1,5 +1,6 @@
 .venv/
-config.json
+config.yaml
+dynamic.yaml
 *.log
 __pycache__/
 *.egg-info/

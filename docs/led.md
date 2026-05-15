@@ -66,8 +66,7 @@ config — turning the integration on or off is purely a config change.
 
 See [config.md](config.md#led-optional). Minimal:
 
-```json
-"LED": {
-  "BASEDIR": "/var/lib/led/inbox"
-}
+```yaml
+LED:
+  BASEDIR: /var/lib/led/inbox
 ```

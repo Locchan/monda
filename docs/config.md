@@ -1,16 +1,16 @@
 # Configuration reference
 
-MonDa reads a single JSON file at startup. The path is resolved in this order:
+MonDa reads a YAML config file at startup. The path is resolved in this order:
 
 1. `CFGFILE_PATH` environment variable, if set.
-2. `./config.json` (current working directory).
-3. `/etc/monda/config.json` (system-wide, Linux).
+2. `./config.yaml` (current working directory).
+3. `/etc/monda/config.yaml` (system-wide, Linux).
 
 If no config file is found in any of these locations, the program prints an
 error and exits with code 1.
 
 When installed via `install.sh`, the systemd unit sets
-`CFGFILE_PATH=/etc/monda/config.json`.
+`CFGFILE_PATH=/etc/monda/config.yaml`.
 
 The config is loaded **once** and cached in memory. `read_config(reload=True)`
 forces a re-read; `write_config(data)` persists changes and reloads.
@@ -119,62 +119,107 @@ Per-worker-type fields are documented alongside each worker. For
 Same layout as `WORKER_CONFIG`: keyed by **job class name**, then by **instance
 name**. Provides static defaults for jobs. At `initialize()` time, the static
 config is merged with the runtime dict passed to the job's constructor —
-runtime values win on key conflict. See [jobs.md](jobs.md) for details.
+runtime values win on key conflict.
 
-```json
-"JOB_CONFIG": {
-  "J_HikAlertSnap": {
-    "front_cam": { "HIK_DEVICE": "cam_front", "CHANNEL": "101" }
-  }
-}
+A job type can be disabled entirely by setting `ENABLED: false` under its
+class name. When disabled, `initialize()` returns `True` but `run()` silently
+returns `None` — no thread is spawned, no error is logged. Enabled by default.
+See [jobs.md](jobs.md) for details.
+
+```yaml
+JOB_CONFIG:
+  J_HikAlertSnap:
+    front_cam:
+      HIK_DEVICE: cam_front
+      CHANNEL: "101"
 ```
+
+## Dynamic configuration
+
+Any config entry can be overridden at runtime without restarting MonDa.
+Overrides live in a separate `dynamic.yaml` file next to the main config
+(e.g. `/etc/monda/dynamic.yaml`).
+
+### How it works
+
+1. Create or update `dynamic.yaml` with the overrides:
+
+   ```yaml
+   HIK_CONFIG:
+     CREDENTIALS:
+       NEW_CAM:
+         USERNAME: admin
+         PASSWORD: secret
+   ```
+
+2. On the next `read_config()` call the dynamic values are deep-merged into
+   the static config. Dynamic wins on key conflict.
+
+`read_config()` checks the file's mtime before reading, so there is no I/O
+overhead when the file hasn't changed.
+
+### Writing dynamic config from code
+
+```python
+from monda.utils.misc import write_dynamic_config
+
+write_dynamic_config("HIK_CONFIG/CREDENTIALS/NEW_CAM", {
+    "USERNAME": "admin",
+    "PASSWORD": "newsecret",
+})
+```
+
+`write_dynamic_config(path, value)` updates `dynamic.yaml` atomically
+(`.tmp` + `os.replace`). The `/`-separated path is expanded into nested keys.
+The next `read_config()` call picks up the change via mtime.
 
 ## Environment variables
 
 | Variable        | Purpose                                                                |
 |-----------------|------------------------------------------------------------------------|
-| `CFGFILE_PATH`  | Override the config file location. Set by the systemd unit to `/etc/monda/config.json`. |
+| `CFGFILE_PATH`  | Override the config file location. Set by the systemd unit to `/etc/monda/config.yaml`. |
 | `PSModulePath`  | Read by the terminal detector to apply Windows UTF-8 stdout fixes. Not user-set. |
 
 ## Example
 
-```json
-{
-  "NAME": "monda",
-  "DEBUG": 1,
-  "TZ": "Europe/Minsk",
-  "HIK_CONFIG": {
-    "CREDENTIALS": {
-      "DACHA": { "USERNAME": "admin", "PASSWORD": "secret" }
-    },
-    "DEVICES": {
-      "reg_dacha": { "ADDRESS": "10.71.1.128", "CREDENTIALS": "DACHA" }
-    },
-    "EVENT_DEQUE_MAX_SIZE": 30
-  },
-  "REDIS": {
-    "HOST": "127.0.0.1",
-    "PORT": 6379,
-    "DB": 0
-  },
-  "LED": {
-    "BASEDIR": "/var/lib/led/inbox"
-  },
-  "WORKER_CONFIG": {
-    "W_HikProducer": {
-      "reg_dacha": { "DEVICE": "reg_dacha", "INTERVAL": 5 }
-    },
-    "W_HikConsumer": {
-      "main": { "INTERVAL": 3 }
-    }
-  },
-  "JOB_CONFIG": {
-    "J_HikAlertSnap": {
-      "ALERT_PERIOD": 15,
-      "reg_dacha": { "HIK_DEVICE": "reg_dacha" }
-    }
-  }
-}
+```yaml
+NAME: monda
+DEBUG: 1
+TZ: Europe/Minsk
+
+HIK_CONFIG:
+  CREDENTIALS:
+    DACHA:
+      USERNAME: admin
+      PASSWORD: secret
+  DEVICES:
+    reg_dacha:
+      ADDRESS: 10.71.1.128
+      CREDENTIALS: DACHA
+  EVENT_DEQUE_MAX_SIZE: 30
+
+REDIS:
+  HOST: 127.0.0.1
+  PORT: 6379
+  DB: 0
+
+LED:
+  BASEDIR: /var/lib/led/inbox
+
+WORKER_CONFIG:
+  W_HikProducer:
+    reg_dacha:
+      DEVICE: reg_dacha
+      INTERVAL: 5
+  W_HikConsumer:
+    main:
+      INTERVAL: 3
+
+JOB_CONFIG:
+  J_HikAlertSnap:
+    ALERT_PERIOD: 15
+    reg_dacha:
+      HIK_DEVICE: reg_dacha
 ```
 
 ### What's optional vs. fatal
