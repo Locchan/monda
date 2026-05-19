@@ -42,6 +42,7 @@ def read_config(filepath=None):
     if mtime == _config_mtime:
         return _config
 
+    is_reload = _config_mtime is not None
     _config_mtime = mtime
     try:
         with open(_config_filepath, "r", encoding="utf-8") as f:
@@ -52,6 +53,10 @@ def read_config(filepath=None):
         if not _config:
             print(f"Could not read config file {_config_filepath}: {e.__class__.__name__}")
             exit(1)
+
+    if is_reload:
+        from monda.utils.logger import get_logger
+        get_logger().info("Config change detected, reloaded.")
 
     return _config
 
