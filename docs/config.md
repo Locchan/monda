@@ -179,7 +179,9 @@ unconditionally.
 ```yaml
 NAME: monda
 DEBUG: 1
+LOG_FILE: /var/log/monda.log
 TZ: Europe/Minsk
+CONFIG_WATCH_INTERVAL: 5
 
 HIK_CONFIG:
   CREDENTIALS:
@@ -190,15 +192,28 @@ HIK_CONFIG:
     reg_dacha:
       ADDRESS: 10.71.1.128
       CREDENTIALS: DACHA
+      PORT: "80"
+      PROTOCOL: http
   EVENT_DEQUE_MAX_SIZE: 30
+  IGNORED_EVENTS:
+    videoloss:
+      - inactive
 
 REDIS:
   HOST: 127.0.0.1
   PORT: 6379
   DB: 0
+  USERNAME: default
+  PASSWORD: redispass
 
 LED:
   BASEDIR: /var/lib/led/inbox
+
+TELEGRAM:
+  BOT_TOKEN: "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"
+  CHAT_IDS:
+    - 12345678
+    - 87654321
 
 WORKER_CONFIG:
   W_HikProducer:
@@ -208,12 +223,17 @@ WORKER_CONFIG:
   W_HikConsumer:
     main:
       INTERVAL: 3
+  W_TelegramBot:
+    main:
+      INTERVAL: 5
 
 JOB_CONFIG:
   J_HikAlertSnap:
+    ENABLED: true
     ALERT_PERIOD: 15
     reg_dacha:
       HIK_DEVICE: reg_dacha
+      CHANNEL: "101"
 ```
 
 ### What's optional vs. fatal
