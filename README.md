@@ -97,7 +97,8 @@ monda/
       hik/
         W_HikProducer.py                 # consumes Hikvision alertStream → Redis
         W_HikConsumer.py                 # drains Redis → process_event
-      telegram/                          # Telegram bot workers
+      telegram/
+        W_TelegramBot.py                 # Telegram bot command dispatcher
     jobs/
       J_HikAlertSnap.py                  # Hikvision snapshot → LED alert job
   utils/

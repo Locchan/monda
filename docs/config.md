@@ -29,6 +29,7 @@ and invalidates the cache so the next read sees the new content.
 | `HIK_CONFIG`    | object | no       | —       | Hikvision subsystem settings. See below. Omit if you don't run Hik workers. |
 | `REDIS`         | object | no       | —       | Single Redis endpoint. Required if any Hik worker is enabled. See below.   |
 | `LED`           | object | no       | —       | Optional outbox integration. See below. Omit to fall back to stderr alerts. |
+| `TELEGRAM`      | object | no       | —       | Telegram bot settings. See below. Omit if you don't run a Telegram worker. |
 | `WORKER_CONFIG` | object | no       | `{}`    | Worker instances to start. See [workers.md](workers.md) for layout.      |
 | `JOB_CONFIG`    | object | no       | `{}`    | Static job config. See [jobs.md](jobs.md) for layout and merge semantics. |
 | `CONFIG_WATCH_INTERVAL` | int | no | `5`     | Seconds between config file mtime checks by the built-in config watcher. |
@@ -102,6 +103,19 @@ to stderr (and deletes any attached files instead of leaking them).
 | `BASEDIR` | string | yes      | —       | Directory `led` watches. Created if missing.       |
 
 See [led.md](led.md) for the on-disk wire format and helper API.
+
+## `TELEGRAM` (optional)
+
+Telegram bot integration. When configured with a `W_TelegramBot` worker
+instance, MonDa polls for incoming messages and dispatches commands.
+
+| Key         | Type   | Required                    | Default | Purpose                                              |
+|-------------|--------|-----------------------------|---------|------------------------------------------------------|
+| `BOT_TOKEN` | string | if running a Telegram worker | —       | Telegram Bot API token from @BotFather.              |
+| `CHAT_IDS`  | list   | if running a Telegram worker | `[]`    | List of integer chat IDs allowed to send commands.   |
+
+Messages from chat IDs not in the list are silently ignored. Only messages
+starting with `/` are treated as commands.
 
 ## `WORKER_CONFIG`
 
