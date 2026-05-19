@@ -46,9 +46,18 @@ class Worker:
         self.initialized = bool(self._initialize())
         return self.initialized
 
+    def _refresh_config(self) -> None:
+        instance_config = (read_config()
+                           .get("WORKER_CONFIG", {})
+                           .get(self.worker_class_name, {})
+                           .get(self.name, {}))
+        if instance_config:
+            self.config = instance_config
+
     def _run(self) -> None:
         try:
             while True:
+                    self._refresh_config()
                     self._work()
                     time.sleep(self.interval)
         except BaseException as e:

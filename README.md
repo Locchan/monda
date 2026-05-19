@@ -93,6 +93,7 @@ monda/
     workers/
       __init__.py                        # ENABLED_WORKERS, deque, ignored-event helper
       worker_utils.py                    # start/validate helpers
+      W_ConfigWatch.py                   # periodic config mtime check (auto-started)
       hik/
         W_HikProducer.py                 # consumes Hikvision alertStream → Redis
         W_HikConsumer.py                 # drains Redis → process_event

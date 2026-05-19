@@ -12,8 +12,11 @@ error and exits with code 1.
 When installed via `install.sh`, the systemd unit sets
 `CFGFILE_PATH=/etc/monda/config.yaml`.
 
-The config is loaded **once** and cached in memory. `read_config(reload=True)`
-forces a re-read; `write_config(data)` persists changes and reloads.
+The config file is a singleton: every `read_config()` call checks the file's
+mtime and re-reads it only when the file has changed on disk. This means any
+edit to `config.yaml` is picked up automatically — no restart required.
+`write_config(data)` persists changes atomically (`.tmp` + `os.replace`)
+and invalidates the cache so the next read sees the new content.
 
 ## Top-level fields
 
@@ -28,6 +31,7 @@ forces a re-read; `write_config(data)` persists changes and reloads.
 | `LED`           | object | no       | —       | Optional outbox integration. See below. Omit to fall back to stderr alerts. |
 | `WORKER_CONFIG` | object | no       | `{}`    | Worker instances to start. See [workers.md](workers.md) for layout.      |
 | `JOB_CONFIG`    | object | no       | `{}`    | Static job config. See [jobs.md](jobs.md) for layout and merge semantics. |
+| `CONFIG_WATCH_INTERVAL` | int | no | `5`     | Seconds between config file mtime checks by the built-in config watcher. |
 
 > On Windows, set `TZ` and ensure `tzdata` is installed in the venv —
 > CPython's `zoneinfo` has no system database to fall back on. `pyproject.toml`
@@ -134,44 +138,20 @@ JOB_CONFIG:
       CHANNEL: "101"
 ```
 
-## Dynamic configuration
+## Live reload
 
-Any config entry can be overridden at runtime without restarting MonDa.
-Overrides live in a separate `dynamic.yaml` file next to the main config
-(e.g. `/etc/monda/dynamic.yaml`).
+The config is a singleton with mtime-based caching. Every `read_config()`
+call checks whether `config.yaml` has been modified on disk and re-reads it
+only when necessary. Workers re-read their config slice before every
+`_work()` tick, so edits to `config.yaml` take effect without a restart.
 
-### How it works
+A built-in `W_ConfigWatch` worker is started automatically on every run. It
+calls `read_config()` every `CONFIG_WATCH_INTERVAL` seconds (default `5`) to
+keep the singleton fresh. No config entry is needed — it starts
+unconditionally.
 
-1. Create or update `dynamic.yaml` with the overrides:
-
-   ```yaml
-   HIK_CONFIG:
-     CREDENTIALS:
-       NEW_CAM:
-         USERNAME: admin
-         PASSWORD: secret
-   ```
-
-2. On the next `read_config()` call the dynamic values are deep-merged into
-   the static config. Dynamic wins on key conflict.
-
-`read_config()` checks the file's mtime before reading, so there is no I/O
-overhead when the file hasn't changed.
-
-### Writing dynamic config from code
-
-```python
-from monda.utils.misc import write_dynamic_config
-
-write_dynamic_config("HIK_CONFIG/CREDENTIALS/NEW_CAM", {
-    "USERNAME": "admin",
-    "PASSWORD": "newsecret",
-})
-```
-
-`write_dynamic_config(path, value)` updates `dynamic.yaml` atomically
-(`.tmp` + `os.replace`). The `/`-separated path is expanded into nested keys.
-The next `read_config()` call picks up the change via mtime.
+`write_config(data)` writes the full config atomically (`.tmp` +
+`os.replace`) and invalidates the cache.
 
 ## Environment variables
 

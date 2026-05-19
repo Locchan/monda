@@ -4,9 +4,19 @@ import os
 import signal
 import time
 
+from monda.classes.workers.W_ConfigWatch import W_ConfigWatch
 from monda.classes.workers.worker_utils import validate_worker_config, start_worker_by_name, start_all_workers
 from monda.utils.logger import get_logger, setdebug, setup_file_logging
 from monda.utils.misc import splash, read_config, signal_stop
+
+
+def _start_config_watcher() -> None:
+    config = read_config()
+    interval = config.get("CONFIG_WATCH_INTERVAL", 5)
+    watcher = W_ConfigWatch("config_watch", interval)
+    watcher.config = {}
+    watcher.initialized = True
+    watcher.run()
 
 
 def main():
@@ -24,6 +34,8 @@ def main():
 
     if "DEBUG" in config and config["DEBUG"]:
         setdebug()
+
+    _start_config_watcher()
 
     validate_worker_config()
 

@@ -17,10 +17,12 @@ def is_ignored_event(name: str, state: str) -> bool:
     return state in states
 
 
+from monda.classes.workers.W_ConfigWatch import W_ConfigWatch
 from monda.classes.workers.hik.W_HikProducer import W_HikProducer
 from monda.classes.workers.hik.W_HikConsumer import W_HikConsumer
 
 ENABLED_WORKERS = {
+    "W_ConfigWatch": W_ConfigWatch,
     "W_HikProducer": W_HikProducer,
     "W_HikConsumer": W_HikConsumer,
 }

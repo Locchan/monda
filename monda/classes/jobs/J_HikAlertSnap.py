@@ -35,7 +35,8 @@ class J_HikAlertSnap(Job):
         return True
 
     def _initialize(self):
-        hik_config = read_config().get("HIK_CONFIG", {})
+        config = read_config()
+        hik_config = config.get("HIK_CONFIG", {})
 
         device_key = self.config["HIK_DEVICE"]
         devices = hik_config.get("DEVICES", {})
@@ -54,20 +55,25 @@ class J_HikAlertSnap(Job):
         if creds_key not in hik_creds:
             logger.error(f"Credentials '{creds_key}' not found in HIK_CONFIG.CREDENTIALS.")
             return False
-        creds = hik_creds[creds_key]
-
-        self.auth = HTTPDigestAuth(creds["USERNAME"], creds["PASSWORD"])
-        proto = device.get("PROTOCOL", "http")
-        port = device.get("PORT", "80")
-        channel = self.config.get("CHANNEL", "101")
-        self.snap_url = f"{proto}://{device['ADDRESS']}:{port}/ISAPI/Streaming/channels/{channel}/picture"
-        self.message = self.config["MESSAGE"]
 
         return True
 
     def _work(self):
-        logger.info(f"Requesting snapshot from {self.snap_url}")
-        response = requests.get(self.snap_url, auth=self.auth, timeout=10)
+        config = read_config()
+        hik_config = config.get("HIK_CONFIG", {})
+        device_key = self.config["HIK_DEVICE"]
+        device = hik_config["DEVICES"][device_key]
+        creds = hik_config["CREDENTIALS"][device["CREDENTIALS"]]
+
+        auth = HTTPDigestAuth(creds["USERNAME"], creds["PASSWORD"])
+        proto = device.get("PROTOCOL", "http")
+        port = device.get("PORT", "80")
+        channel = self.config.get("CHANNEL", "101")
+        snap_url = f"{proto}://{device['ADDRESS']}:{port}/ISAPI/Streaming/channels/{channel}/picture"
+        message = self.config["MESSAGE"]
+
+        logger.info(f"Requesting snapshot from {snap_url}")
+        response = requests.get(snap_url, auth=auth, timeout=10)
         if response.status_code != 200:
             raise RuntimeError(f"Snapshot request failed: HTTP {response.status_code}")
 
@@ -80,4 +86,4 @@ class J_HikAlertSnap(Job):
             os.unlink(tmp_path)
             raise
 
-        send_alert(self.message, files=[tmp_path])
+        send_alert(message, files=[tmp_path])
