@@ -4,6 +4,8 @@ import tarfile
 import tempfile
 from datetime import datetime
 
+import zstandard
+
 from monda.classes.base.Job import Job
 from monda.utils.logger import get_logger
 
@@ -35,14 +37,16 @@ class J_HikSnapArch(Job):
             return
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        archive_name = f"snap_{timestamp}.tar.gz"
+        archive_name = f"snap_{timestamp}.tar.zst"
 
-        fd, archive_path = tempfile.mkstemp(suffix=".tar.gz", prefix="hikarch_")
+        fd, archive_path = tempfile.mkstemp(suffix=".tar.zst", prefix="hikarch_")
         os.close(fd)
         try:
-            with tarfile.open(archive_path, "w:gz") as tar:
-                for fname in files:
-                    tar.add(os.path.join(src_dir, fname), arcname=fname)
+            with open(archive_path, "wb") as fh:
+                with zstandard.ZstdCompressor().stream_writer(fh) as zst:
+                    with tarfile.open(fileobj=zst, mode="w|") as tar:
+                        for fname in files:
+                            tar.add(os.path.join(src_dir, fname), arcname=fname)
         except Exception:
             os.unlink(archive_path)
             raise

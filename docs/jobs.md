@@ -212,8 +212,9 @@ the source files are retained for the next run.
 | `SRC_DIR`  | string | yes      | —       | Directory whose files are archived.                             |
 | `DEST_DIR` | string | yes      | —       | Destination directory for the archive (e.g. an NFS mount path). |
 
-Archive name format: `snap_YYYYMMDD_HHMMSS.tar.gz`. The archive is created
-in the system temp directory (never on the NFS path) and then copied over.
+Archive name format: `snap_YYYYMMDD_HHMMSS.tar.zst`. The archive is created
+in the system temp directory (never on the NFS path) using Zstandard
+compression (`zstandard` package) and then copied over.
 
 Outcome matrix:
 
