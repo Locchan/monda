@@ -83,9 +83,13 @@ construct  →  initialize()  →  run()  →  _run() loop  →  (death)  →  r
 ## W_Cron
 
 Runs jobs on crontab schedules. Every tick (recommended `INTERVAL: 5`) it
-checks whether any configured job should have fired since the last tick
-finished, and spawns it if so. Multiple firings are replayed in order if the
-worker was delayed (e.g. after a restart).
+checks each configured job and fires it if at least one schedule slot occurred
+since the last tick finished — at most once per job per tick, regardless of
+how many slots were missed (no replay of accumulated backlog).
+
+If multiple jobs are due in the same tick they all fire: the loop spawns each
+as a daemon thread via `job.run()` and moves on immediately, so execution is
+concurrent even though the scheduling check is sequential.
 
 ### Config
 

@@ -62,10 +62,7 @@ class W_Cron(Worker):
             if not croniter.is_valid(schedule):
                 logger.warning(f"W_Cron: skipping '{job_name}' — invalid schedule {schedule!r}")
                 continue
-            cron = croniter(schedule, self._last_check)
-            next_fire = cron.get_next(datetime)
-            while next_fire <= now:
-                logger.info(f"W_Cron: firing '{job_name}' ({job_class_name}) for {next_fire}")
+            if croniter(schedule, self._last_check).get_next(datetime) <= now:
+                logger.info(f"W_Cron: firing '{job_name}' ({job_class_name})")
                 self._spawn_job(job_name, job_class_name, spec.get("PARAMS") or {})
-                next_fire = cron.get_next(datetime)
         self._last_check = now
