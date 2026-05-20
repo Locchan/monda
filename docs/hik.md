@@ -54,8 +54,7 @@ Hik device ──HTTP alertStream──▶ W_HikProducer ──RPUSH──▶ Re
 | `W_HikProducer`                      | Worker. Connects to a device's `alertStream` and parses XML events into `HikEvent`s, appending them to the shared deque. |
 | `W_HikConsumer`                      | Worker. Pops `HikEvent`s from the Redis LIST and dispatches them via `process_event` (stub). |
 | `HikEvent`                           | Data class. One parsed alert: `name`, `state`, `date` (timezone-aware), `source`. |
-| `HikEvents` (in `workers/__init__.py`) | Shared bounded `collections.deque` that producers append to and consumers drain. |
-| `HIK_EVENT_DEQUE_MAX_SIZE`           | Resolved deque capacity. Producers compare against this before appending so they can log "queue is full — bleeding data" before silent drop. |
+| `HikEvents` (in `workers/__init__.py`) | Shared bounded `collections.deque` that producers append to and drain into Redis. Capacity set from `HIK_CONFIG.EVENT_DEQUE_MAX_SIZE` at import time. Producers compare `len(HikEvents)` against the configured max before appending so they can log "bleeding data" before the silent drop. |
 
 ## `W_HikProducer` config
 

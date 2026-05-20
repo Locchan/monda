@@ -19,9 +19,10 @@ construct  →  initialize()  →  run()  →  _run() loop  →  (death)  →  r
    the worker won't start.
 3. **`run()`** spawns a daemon thread named `<short_name>_<instance>` (the
    worker's `self.name`) and returns it. The thread executes `_run()`.
-4. **`_run()`** loops: call `_work()`, sleep `interval` seconds, repeat. Any
-   exception is logged and ends the loop (the thread dies and the main loop
-   resurrects it on the next health check).
+4. **`_run()`** loops: call `_refresh_config()`, call `_work()`, sleep
+   `interval` seconds, repeat. Any `BaseException` is caught, logged, and ends
+   the loop (the thread dies and the main loop resurrects it on the next health
+   check).
 
 ## Required class attributes
 

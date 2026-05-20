@@ -165,7 +165,7 @@ has expired, `False` otherwise.
 Manual usage:
 
 ```python
-from monda.classes.jobs.J_HikAlertSnap import J_HikAlertSnap
+from monda.classes.jobs.hik.J_HikAlertSnap import J_HikAlertSnap
 
 if J_HikAlertSnap.acquire("cam_front"):
     job = J_HikAlertSnap("front_cam", {"HIK_DEVICE": "cam_front", "MESSAGE": "Motion"})

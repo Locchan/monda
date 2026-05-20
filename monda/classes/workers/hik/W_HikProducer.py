@@ -49,7 +49,7 @@ class W_HikProducer(Worker):
         return auth, alert_url, username
 
     def process_alert(self, alert: str):
-        event = HikEvent.from_xml(alert, source=self.name)
+        event = HikEvent.from_xml(alert, source=self._instance_name)
         if is_ignored_event(event.name, event.state):
             return
         max_size = read_config().get("HIK_CONFIG", {}).get("EVENT_DEQUE_MAX_SIZE", 30)
