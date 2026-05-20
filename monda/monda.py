@@ -46,15 +46,14 @@ def main():
         os._exit(1)
 
     while True:
-        for anindex, athread in enumerate(worker_threads):
-            if not athread.is_alive():
-                dead_worker_name = athread.name.split("-")[1]
-                logger.warning("Resurrecting a dead worker: " + athread.name)
-                resurrected_thr = start_worker_by_name(dead_worker_name)
-                if resurrected_thr is not None:
-                    worker_threads[anindex] = resurrected_thr
+        for i, (thread, worker_type, instance_name) in enumerate(worker_threads):
+            if not thread.is_alive():
+                logger.warning(f"Resurrecting a dead worker: {thread.name}")
+                new_thread = start_worker_by_name(worker_type, instance_name)
+                if new_thread is not None:
+                    worker_threads[i] = (new_thread, worker_type, instance_name)
                 else:
-                    logger.error("Could not resurrect a dead worker: " + dead_worker_name)
+                    logger.error(f"Could not resurrect dead worker: {thread.name}")
             time.sleep(0.5)
         time.sleep(5)
 

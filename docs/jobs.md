@@ -68,7 +68,7 @@ job = J_HikAlertSnap("front_cam", {"MESSAGE": "Motion detected!"})
 | Attribute                  | Notes                                                   |
 |----------------------------|---------------------------------------------------------|
 | `job_class_name`           | Must equal the class name and must start with `J_`.     |
-| `job_class_name_short`     | Short tag for log prefixes. No `-`.                     |
+| `job_class_name_short`     | Short tag prepended to the instance name to form `self.name` (e.g. `J:Purge_nightly`). No `-`. |
 | `required_config_entries`  | List of keys that must be present in the merged config. |
 
 ## Hooks to override
@@ -81,23 +81,24 @@ job = J_HikAlertSnap("front_cam", {"MESSAGE": "Motion detected!"})
 ## What the base class logs
 
 All lifecycle logs come from inside the job's own thread, so the threadName
-column in the log identifies which job emitted them (e.g.
-`J:Purge-nightly`).
+column in the log identifies which job emitted them (e.g. `J:Purge_nightly`).
+`self.name` is `f"{job_class_name_short}_{instance_name}"` and is used verbatim
+in every message — no separate class tag is printed.
 
-- `Job '<name>' starting` — at INFO right before `_work()` runs. Wall-clock
+- `'<name>' starting` — at INFO right before `_work()` runs. Wall-clock
   start is captured at the same moment for the duration measurement.
-- `Job '<name>' finished in <duration>` — at INFO if `_work()` returns
+- `'<name>' finished in <duration>` — at INFO if `_work()` returns
   normally. Duration uses `time.monotonic()`, so wall-clock jumps don't
   perturb it. Format trims leading zero units: `30s`, `1m 30s`, `1h 1m 30s`.
-- `Job '<name>' failed after <duration>: <exception>` — at ERROR with
+- `'<name>' failed after <duration>: <exception>` — at ERROR with
   traceback if `_work()` raises any `Exception`, including the elapsed time
   before it failed. `BaseException` (e.g. `KeyboardInterrupt`, `SystemExit`)
   is not caught — those propagate inside the job thread.
-- `Could not run job '<name>': not initialized` — at ERROR on the caller's
+- `Could not run '<name>': not initialized` — at ERROR on the caller's
   thread if `run()` is called without a successful prior `initialize()`.
   `run()` returns `None` in this case.
-- `Could not create job thread: <exception>` — at ERROR on the caller's
-  thread if `Thread.start()` itself failed. `run()` returns `None`.
+- `Could not create job thread for '<name>': <exception>` — at ERROR on the
+  caller's thread if `Thread.start()` itself failed. `run()` returns `None`.
 - `Could not initialize: missing the following config entries: [...]` — at
   ERROR if `initialize()` finds missing required fields.
 
@@ -172,8 +173,55 @@ if J_HikAlertSnap.acquire("cam_front"):
         job.run()
 ```
 
+## `J_HikSnap`
+
+Grabs a snapshot from a Hikvision camera and saves it to a local directory.
+The directory is created if it does not exist.
+
+| Key          | Type   | Required | Default | Purpose                                                    |
+|--------------|--------|----------|---------|------------------------------------------------------------|
+| `HIK_DEVICE` | string | yes      | —       | Name of an entry under `HIK_CONFIG.DEVICES`.               |
+| `DEST_DIR`   | string | yes      | —       | Directory to write the snapshot into.                      |
+| `CHANNEL`    | string | no       | `"101"` | ISAPI streaming channel (101 = camera 1 main stream).      |
+
+Filename format: `<device_key>_YYYYMMDD_HHMMSS.jpg`.
+
+Typically fired on a schedule via `W_Cron`. The `DEST_DIR` can then be
+archived by `J_HikSnapArch`.
+
+## `J_HikSnapArch`
+
+Archives all files in a directory into a `.tar.gz` and copies it to a
+destination path (intended for NFS mounts). NFS failures are handled
+gracefully: the copy is caught as an `OSError`, logged as a warning, and
+the source files are retained for the next run.
+
+| Key        | Type   | Required | Default | Purpose                                                         |
+|------------|--------|----------|---------|-----------------------------------------------------------------|
+| `SRC_DIR`  | string | yes      | —       | Directory whose files are archived.                             |
+| `DEST_DIR` | string | yes      | —       | Destination directory for the archive (e.g. an NFS mount path). |
+
+Archive name format: `snap_YYYYMMDD_HHMMSS.tar.gz`. The archive is created
+in the system temp directory (never on the NFS path) and then copied over.
+
+Outcome matrix:
+
+| Copy result | Archive removed | Source files removed |
+|-------------|-----------------|----------------------|
+| Success     | yes             | yes                  |
+| Failure     | yes             | no (retained)        |
+
+If `SRC_DIR` does not exist or is empty the job exits cleanly without error.
+
+To add a new job class to `W_Cron`'s scheduler, register it in
+`monda/classes/jobs/__init__.py` under `ENABLED_JOBS`.
+
 ## Naming rules
 
 - Class name must start with `J_` and contain no `-`. Enforced in
   `Job.__init__` (process exits if violated).
-- Job instance name must contain no `-`.
+- Instance name must contain no `-`. The same instance name may appear across
+  different job classes without conflict.
+- `self.name` is set automatically to `f"{job_class_name_short}_{instance_name}"`
+  (e.g. `J:Purge_nightly`). It is used as the thread name and in all log
+  messages. Subclasses must not set `self.name` manually.

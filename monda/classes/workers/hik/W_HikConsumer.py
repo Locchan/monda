@@ -4,8 +4,8 @@ from typing import cast
 import redis as redis_lib
 
 from monda.classes.base.Worker import Worker
-from monda.classes.base.Hik.HikEvent import HikEvent
-from monda.classes.jobs.J_HikAlertSnap import J_HikAlertSnap
+from monda.classes.base.hik.HikEvent import HikEvent
+from monda.classes.jobs.hik.J_HikAlertSnap import J_HikAlertSnap
 from monda.classes.workers import HIK_EVENTS_TOPIC, is_ignored_event
 from monda.utils.led_alert import send_alert
 from monda.utils.logger import get_logger

@@ -5,7 +5,7 @@ import requests
 from requests.auth import HTTPDigestAuth
 
 from monda.classes.base.Worker import Worker
-from monda.classes.base.Hik.HikEvent import HikEvent
+from monda.classes.base.hik.HikEvent import HikEvent
 from monda.classes.workers import HikEvents, HIK_EVENTS_TOPIC, is_ignored_event
 from monda.utils.logger import get_logger
 from monda.utils.misc import read_config

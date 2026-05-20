@@ -226,6 +226,23 @@ WORKER_CONFIG:
   W_TelegramBot:
     main:
       INTERVAL: 5
+  W_Cron:
+    main:
+      INTERVAL: 5
+      JOBS:
+        snap_reg_dacha:
+          SCHEDULE: "*/5 * * * *"
+          JOB_CLASS: J_HikSnap
+          PARAMS:
+            HIK_DEVICE: reg_dacha
+            DEST_DIR: /var/lib/monda/snaps/reg_dacha
+            CHANNEL: "101"
+        arch_reg_dacha:
+          SCHEDULE: "0 * * * *"
+          JOB_CLASS: J_HikSnapArch
+          PARAMS:
+            SRC_DIR: /var/lib/monda/snaps/reg_dacha
+            DEST_DIR: /mnt/nfs/archive/reg_dacha
 
 JOB_CONFIG:
   J_HikAlertSnap:

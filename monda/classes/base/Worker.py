@@ -20,7 +20,8 @@ class Worker:
         if not self.worker_class_name.startswith("W_"):
             logger.error(f"Worker class name must start with 'W_'. Offending name: {self.worker_class_name}")
             os._exit(1)
-        self.name = name
+        self._instance_name = name
+        self.name = f"{self.worker_class_name_short}_{name}"
         self.interval = interval_s
         self.config = {}
         self.initialized = False
@@ -34,7 +35,7 @@ class Worker:
 
     def initialize(self) -> bool:
         worker_config = read_config().get("WORKER_CONFIG", {})
-        instance_config = worker_config.get(self.worker_class_name, {}).get(self.name)
+        instance_config = worker_config.get(self.worker_class_name, {}).get(self._instance_name)
         if instance_config is None:
             logger.error("Could not initialize: no config.")
             return False
@@ -50,7 +51,7 @@ class Worker:
         instance_config = (read_config()
                            .get("WORKER_CONFIG", {})
                            .get(self.worker_class_name, {})
-                           .get(self.name, {}))
+                           .get(self._instance_name, {}))
         if instance_config:
             self.config = instance_config
 
@@ -69,7 +70,7 @@ class Worker:
             logger.error(f"Could not start worker {self.name}: not initialized")
             return None
         try:
-            worker_thread = Thread(target=self._run, daemon=True, name=f"{self.worker_class_name_short}-{self.name}")
+            worker_thread = Thread(target=self._run, daemon=True, name=self.name)
             worker_thread.start()
             logger.info(f"Started thread '{worker_thread.name}'")
             return worker_thread

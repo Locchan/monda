@@ -37,7 +37,8 @@ class Job:
         if not self.job_class_name.startswith("J_"):
             logger.error(f"Job class name must start with 'J_'. Offending name: {self.job_class_name}")
             os._exit(1)
-        self.name = name
+        self._instance_name = name
+        self.name = f"{self.job_class_name_short}_{name}"
         self._runtime_config = job_config or {}
         self.config = {}
         self.initialized = False
@@ -52,7 +53,7 @@ class Job:
         job_type_config = (read_config()
                            .get("JOB_CONFIG", {})
                            .get(self.job_class_name, {}))
-        static_config = job_type_config.get(self.name, {})
+        static_config = job_type_config.get(self._instance_name, {})
         self.config = {**static_config, **self._runtime_config}
 
         enabled_in_config = job_type_config.get("ENABLED", True)
@@ -76,27 +77,27 @@ class Job:
         return self.initialized
 
     def _run(self) -> None:
-        logger.info(f"[{self.__class__.__name__}] '{self.name}' starting...")
+        logger.info(f"'{self.name}' starting...")
         started = time.monotonic()
         try:
             self._work()
         except Exception as e:
             elapsed = _format_duration(time.monotonic() - started)
-            logger.exception(f"Job '{self.name}' failed after {elapsed}: {e}")
+            logger.exception(f"'{self.name}' failed after {elapsed}: {e}")
             return
         elapsed = _format_duration(time.monotonic() - started)
-        logger.info(f"Job '{self.name}' finished in {elapsed}")
+        logger.info(f"'{self.name}' finished in {elapsed}")
 
     def run(self) -> Thread | None:
         if self.__class__ in self.disabled_jobs:
             return None
         if not self.initialized:
-            logger.error(f"Could not run [{self.__class__.__name__}] '{self.name}': not initialized")
+            logger.error(f"Could not run '{self.name}': not initialized")
             return None
         try:
-            job_thread = Thread(target=self._run, daemon=True, name=f"{self.job_class_name_short}-{self.name}")
+            job_thread = Thread(target=self._run, daemon=True, name=self.name)
             job_thread.start()
             return job_thread
         except BaseException as e:
-            logger.error(f"Could not create job thread for [{self.__class__.__name__}] '{self.name}': {e}")
+            logger.error(f"Could not create job thread for '{self.name}': {e}")
             return None

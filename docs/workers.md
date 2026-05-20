@@ -10,15 +10,15 @@ any that die.
 construct  →  initialize()  →  run()  →  _run() loop  →  (death)  →  resurrect
 ```
 
-1. **Construct.** `start_worker_by_name` looks up the instance config in
-   `WORKER_CONFIG`, finds the matching class in `ENABLED_WORKERS`, and
-   instantiates it with `(name, interval)`.
+1. **Construct.** `start_worker_by_name(worker_type, instance_name)` looks up
+   the instance config in `WORKER_CONFIG`, finds the matching class in
+   `ENABLED_WORKERS`, and instantiates it with `(instance_name, interval)`.
 2. **`initialize()`** (in `Worker`) loads the per-instance config slice from
-   `WORKER_CONFIG[<class>][<name>]`, verifies `required_config_entries`, then
-   calls the subclass hook `_initialize()`. Returns `False` on any problem —
+   `WORKER_CONFIG[<class>][<instance_name>]`, verifies `required_config_entries`,
+   then calls the subclass hook `_initialize()`. Returns `False` on any problem —
    the worker won't start.
-3. **`run()`** spawns a daemon thread named `<short_name>-<instance>` and
-   returns it. The thread executes `_run()`.
+3. **`run()`** spawns a daemon thread named `<short_name>_<instance>` (the
+   worker's `self.name`) and returns it. The thread executes `_run()`.
 4. **`_run()`** loops: call `_work()`, sleep `interval` seconds, repeat. Any
    exception is logged and ends the loop (the thread dies and the main loop
    resurrects it on the next health check).
@@ -28,7 +28,7 @@ construct  →  initialize()  →  run()  →  _run() loop  →  (death)  →  r
 | Attribute                  | Notes                                                     |
 |----------------------------|-----------------------------------------------------------|
 | `worker_class_name`        | Must equal the class name and must start with `W_`. Used as the key under `WORKER_CONFIG`. |
-| `worker_class_name_short`  | Short tag used in thread names and log prefixes. No `-`.  |
+| `worker_class_name_short`  | Short tag prepended to the instance name to form `self.name` (e.g. `W:Cron_main`). No `-`. |
 | `required_config_entries`  | List of keys that must be present in the instance config. |
 
 ## Hooks to override
@@ -80,15 +80,50 @@ construct  →  initialize()  →  run()  →  _run() loop  →  (death)  →  r
          INTERVAL: 30
    ```
 
+## W_Cron
+
+Runs jobs on crontab schedules. Every tick (recommended `INTERVAL: 5`) it
+checks whether any configured job should have fired since the last tick
+finished, and spawns it if so. Multiple firings are replayed in order if the
+worker was delayed (e.g. after a restart).
+
+### Config
+
+```yaml
+WORKER_CONFIG:
+  W_Cron:
+    main:
+      INTERVAL: 5
+      JOBS:                       # required, non-empty dict
+        <job_instance_name>:
+          SCHEDULE: "* * * * *"  # standard 5-field crontab expression
+          JOB_CLASS: J_SomeJob   # must be registered in ENABLED_JOBS
+          PARAMS:                 # optional; passed as runtime config to the job
+            KEY: value
+```
+
+`SCHEDULE` uses standard five-field crontab syntax (`min hour dom month dow`).
+`PARAMS` is merged as the runtime config override passed to the job constructor
+— it wins over any static `JOB_CONFIG` values on key conflict.
+
+To add a new job class to the scheduler, register it in
+`monda/classes/jobs/__init__.py` under `ENABLED_JOBS`.
+
 ## Naming rules
 
 - Worker **class name** must start with `W_` and contain no `-`. Enforced in
   `Worker.__init__` (the process exits if violated).
-- Worker **instance name** must contain no `-` and must be unique across all
-  worker types (the resurrection logic parses it back out of the thread name).
+- Worker **instance name** must contain no `-` and must be unique within its
+  worker type. The same instance name may be reused across different types
+  (e.g. both `W_Cron` and `W_ConfigWatch` can have an instance named `main`).
+- `self.name` is set automatically to `f"{worker_class_name_short}_{instance_name}"`
+  and is used as the thread name and in log messages. Subclasses must not
+  set `self.name` manually.
 
 ## Resurrection
 
-The main loop walks `worker_threads` every 5 seconds. If a thread isn't alive,
-it calls `start_worker_by_name` with the instance name pulled out of the dead
-thread's name. The new thread replaces the dead one in the list.
+The main loop tracks a list of `(thread, worker_type, instance_name)` tuples.
+Every 5 seconds it checks each thread with `is_alive()`. If a thread has died
+it calls `start_worker_by_name(worker_type, instance_name)` — the type and
+instance name are stored in the tuple, so no thread-name parsing is involved.
+The new thread replaces the dead one in the list.
