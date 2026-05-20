@@ -53,7 +53,7 @@ class J_HikSnap(Job):
         channel = self.config.get("CHANNEL", "101")
         snap_url = f"{proto}://{device['ADDRESS']}:{port}/ISAPI/Streaming/channels/{channel}/picture"
 
-        logger.info(f"Requesting snapshot from {snap_url}")
+        self._info(f"Requesting snapshot from {snap_url}")
         response = requests.get(snap_url, auth=HTTPDigestAuth(creds["USERNAME"], creds["PASSWORD"]), timeout=10)
         if response.status_code != 200:
             raise RuntimeError(f"Snapshot request failed: HTTP {response.status_code}")
@@ -63,4 +63,4 @@ class J_HikSnap(Job):
         dest_path = os.path.join(dest_dir, f"{device_key}_{timestamp}.jpg")
         with open(dest_path, "wb") as f:
             f.write(response.content)
-        logger.info(f"Snapshot saved to {dest_path}")
+        self._info(f"Snapshot saved to {dest_path}")

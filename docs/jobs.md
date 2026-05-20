@@ -85,11 +85,22 @@ column in the log identifies which job emitted them (e.g. `J:Purge_nightly`).
 `self.name` is `f"{job_class_name_short}_{instance_name}"` and is used verbatim
 in every message — no separate class tag is printed.
 
-- `'<name>' starting` — at INFO right before `_work()` runs. Wall-clock
-  start is captured at the same moment for the duration measurement.
-- `'<name>' finished in <duration>` — at INFO if `_work()` returns
-  normally. Duration uses `time.monotonic()`, so wall-clock jumps don't
-  perturb it. Format trims leading zero units: `30s`, `1m 30s`, `1h 1m 30s`.
+### Silent mode
+
+Pass `silent=True` to `__init__` to downgrade all routine INFO messages
+(start, finish, and any `self._info()` calls in subclasses) to DEBUG.
+Warnings and errors are never suppressed. `W_Cron` reads `SILENT` from each job's spec (default `false`) and passes it
+through — set `SILENT: true` on individual jobs in the cron config to silence them.
+
+Subclasses should use `self._info(message)` instead of `logger.info` for
+routine status messages so they respect the flag automatically.
+
+- `'<name>' starting` — INFO (or DEBUG when silent) before `_work()` runs.
+  Wall-clock start is captured at the same moment for the duration measurement.
+- `'<name>' finished in <duration>` — INFO (or DEBUG when silent) if
+  `_work()` returns normally. Duration uses `time.monotonic()`, so wall-clock
+  jumps don't perturb it. Format trims leading zero units: `30s`, `1m 30s`,
+  `1h 1m 30s`.
 - `'<name>' failed after <duration>: <exception>` — at ERROR with
   traceback if `_work()` raises any `Exception`, including the elapsed time
   before it failed. `BaseException` (e.g. `KeyboardInterrupt`, `SystemExit`)

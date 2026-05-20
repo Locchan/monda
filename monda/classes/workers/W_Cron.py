@@ -43,12 +43,12 @@ class W_Cron(Worker):
         self._last_check = datetime.now()
         return True
 
-    def _spawn_job(self, job_name: str, job_class_name: str, params: dict) -> None:
+    def _spawn_job(self, job_name: str, job_class_name: str, params: dict, silent: bool) -> None:
         job_cls = ENABLED_JOBS.get(job_class_name)
         if job_cls is None:
             logger.warning(f"W_Cron: unknown job class '{job_class_name}' for '{job_name}'")
             return
-        job = job_cls(job_name, params)
+        job = job_cls(job_name, params, silent=silent)
         if job.initialize():
             job.run()
 
@@ -63,6 +63,6 @@ class W_Cron(Worker):
                 logger.warning(f"W_Cron: skipping '{job_name}' — invalid schedule {schedule!r}")
                 continue
             if croniter(schedule, self._last_check).get_next(datetime) <= now:
-                logger.info(f"W_Cron: firing '{job_name}' ({job_class_name})")
-                self._spawn_job(job_name, job_class_name, spec.get("PARAMS") or {})
+                logger.debug(f"W_Cron: firing '{job_name}' ({job_class_name})")
+                self._spawn_job(job_name, job_class_name, spec.get("PARAMS") or {}, spec.get("SILENT", False))
         self._last_check = now

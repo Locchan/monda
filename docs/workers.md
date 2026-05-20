@@ -103,6 +103,7 @@ WORKER_CONFIG:
         <job_instance_name>:
           SCHEDULE: "* * * * *"  # standard 5-field crontab expression
           JOB_CLASS: J_SomeJob   # must be registered in ENABLED_JOBS
+          SILENT: false           # optional; suppress routine INFO logs (default false)
           PARAMS:                 # optional; passed as runtime config to the job
             KEY: value
 ```

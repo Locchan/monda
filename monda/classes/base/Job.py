@@ -30,7 +30,7 @@ class Job:
     required_config_entries = []
     disabled_jobs = []
 
-    def __init__(self, name: str, job_config: dict | None = None):
+    def __init__(self, name: str, job_config: dict | None = None, silent: bool = False):
         if "-" in self.job_class_name or '-' in name:
             logger.error("'-' is not allowed in job class names or job names.")
             os._exit(1)
@@ -40,8 +40,15 @@ class Job:
         self._instance_name = name
         self.name = f"{self.job_class_name_short}_{name}"
         self._runtime_config = job_config or {}
+        self.silent = silent
         self.config = {}
         self.initialized = False
+
+    def _info(self, message: str) -> None:
+        if self.silent:
+            logger.debug(message)
+        else:
+            logger.info(message)
 
     def _work(self):
         logger.error(f"_work() method is not implemented in {self.__class__.__name__}")
@@ -77,7 +84,7 @@ class Job:
         return self.initialized
 
     def _run(self) -> None:
-        logger.info(f"'{self.name}' starting...")
+        self._info(f"'{self.name}' starting...")
         started = time.monotonic()
         try:
             self._work()
@@ -86,7 +93,7 @@ class Job:
             logger.exception(f"'{self.name}' failed after {elapsed}: {e}")
             return
         elapsed = _format_duration(time.monotonic() - started)
-        logger.info(f"'{self.name}' finished in {elapsed}")
+        self._info(f"'{self.name}' finished in {elapsed}")
 
     def run(self) -> Thread | None:
         if self.__class__ in self.disabled_jobs:

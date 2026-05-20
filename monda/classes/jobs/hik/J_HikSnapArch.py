@@ -24,14 +24,14 @@ class J_HikSnapArch(Job):
         dest_dir = self.config["DEST_DIR"]
 
         if not os.path.isdir(src_dir):
-            logger.info(f"J_HikSnapArch: SRC_DIR '{src_dir}' does not exist, nothing to do.")
+            self._info(f"J_HikSnapArch: SRC_DIR '{src_dir}' does not exist, nothing to do.")
             return
 
         files = sorted(
             entry.name for entry in os.scandir(src_dir) if entry.is_file()
         )
         if not files:
-            logger.info(f"J_HikSnapArch: '{src_dir}' is empty, nothing to archive.")
+            self._info(f"J_HikSnapArch: '{src_dir}' is empty, nothing to archive.")
             return
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -67,6 +67,6 @@ class J_HikSnapArch(Job):
                     os.unlink(os.path.join(src_dir, fname))
                 except OSError as e:
                     logger.warning(f"J_HikSnapArch: could not remove '{fname}': {e}")
-            logger.info(f"J_HikSnapArch: archived {len(files)} file(s) to '{dest_path}'.")
+            self._info(f"J_HikSnapArch: archived {len(files)} file(s) to '{dest_path}'.")
         else:
-            logger.info(f"J_HikSnapArch: {len(files)} source file(s) retained until next run.")
+            self._info(f"J_HikSnapArch: {len(files)} source file(s) retained until next run.")

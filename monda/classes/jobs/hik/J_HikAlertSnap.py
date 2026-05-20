@@ -72,7 +72,7 @@ class J_HikAlertSnap(Job):
         snap_url = f"{proto}://{device['ADDRESS']}:{port}/ISAPI/Streaming/channels/{channel}/picture"
         message = self.config["MESSAGE"]
 
-        logger.info(f"Requesting snapshot from {snap_url}")
+        self._info(f"Requesting snapshot from {snap_url}")
         response = requests.get(snap_url, auth=auth, timeout=10)
         if response.status_code != 200:
             raise RuntimeError(f"Snapshot request failed: HTTP {response.status_code}")
