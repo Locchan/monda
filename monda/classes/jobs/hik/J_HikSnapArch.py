@@ -56,6 +56,7 @@ class J_HikSnapArch(Job):
         try:
             os.makedirs(dest_dir, exist_ok=True)
             shutil.copy2(archive_path, dest_path)
+            os.chmod(dest_path, 0o666)
             copy_ok = True
         except OSError as e:
             logger.warning(f"J_HikSnapArch: copy to '{dest_path}' failed (NFS down?): {e}")
