@@ -12,6 +12,7 @@ from monda.utils.misc import read_config
 logger: logging.Logger = get_logger()
 
 
+# docs/jobs.md
 class J_HikSnap(Job):
 
     job_class_name = "J_HikSnap"
