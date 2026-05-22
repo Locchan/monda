@@ -1,22 +1,37 @@
 # Configuration reference
 
-MonDa reads a YAML config file at startup. The path is resolved in this order:
+MonDa reads all `*.ini` files in a config **directory** and merges them into
+one config dict. The directory is resolved in this order:
 
-1. `CFGFILE_PATH` environment variable, if set.
-2. `./config.yaml` (current working directory).
-3. `/etc/monda/config.yaml` (system-wide, Linux).
+1. `CFG_DIR` environment variable, if set.
+2. `./config/` (current working directory).
+3. `/etc/monda/` (system-wide, Linux).
 
-If no config file is found in any of these locations, the program prints an
+If no directory is found in any of these locations, the program prints an
 error and exits with code 1.
 
 When installed via `install.sh`, the systemd unit sets
-`CFGFILE_PATH=/etc/monda/config.yaml`.
+`CFG_DIR=/etc/monda`.
 
-The config file is a singleton: every `read_config()` call checks the file's
-mtime and re-reads it only when the file has changed on disk. This means any
-edit to `config.yaml` is picked up automatically — no restart required.
-`write_config(data)` persists changes atomically (`.tmp` + `os.replace`)
-and invalidates the cache so the next read sees the new content.
+The config is a singleton with mtime-based caching. Every `read_config()` call
+compares the mtime of every `*.ini` file in the directory tree (including
+subdirectories). If any file is added, removed, or modified, the entire
+directory is re-read and re-merged. No restart required.
+
+### Merging rules
+
+Files are scanned recursively, sorted by path (depth-first, alphabetical). Any
+scalar or list value defined in more than one file at the same config path is a
+**collision** — MonDa prints the conflicting paths and exits with code 1. Two
+files that define different keys under the same section are fine and merged
+normally. This allows splitting config across logical files (e.g.
+`hik.ini`, `workers.ini`, `cron.ini`) without risk of silent overrides.
+
+`write_config(data)` writes the full merged config atomically to
+`runtime.ini` inside the config directory. Callers using `set_config_entry`
+or `append_config_entry` should ensure `runtime.ini` does not duplicate keys
+already defined in other files, or move all config into `runtime.ini` and
+remove the other files.
 
 ## Top-level fields
 
@@ -120,8 +135,9 @@ starting with `/` are treated as commands.
 ## `WORKER_CONFIG`
 
 A dict keyed by **worker class name** (e.g. `W_HikProducer`). Each value is a
-dict keyed by **instance name**. Instance names must be unique across all
-worker types — `validate_worker_config` enforces this at startup.
+dict keyed by **instance name**. Instance names must be unique within their
+worker type — e.g. two `W_Cron` instances cannot both be named `main`, but
+a `W_Cron` and a `W_HikProducer` instance can both be named `main`.
 
 Common per-instance fields recognised by the base `Worker`:
 
@@ -144,20 +160,19 @@ class name. When disabled, `initialize()` returns `True` but `run()` silently
 returns `None` — no thread is spawned, no error is logged. Enabled by default.
 See [jobs.md](jobs.md) for details.
 
-```yaml
-JOB_CONFIG:
-  J_HikAlertSnap:
-    front_cam:
-      HIK_DEVICE: cam_front
-      CHANNEL: "101"
+```ini
+[job.J_HikAlertSnap.front_cam]
+HIK_DEVICE = cam_front
+CHANNEL = 101
 ```
 
 ## Live reload
 
-The config is a singleton with mtime-based caching. Every `read_config()`
-call checks whether `config.yaml` has been modified on disk and re-reads it
-only when necessary. Workers re-read their config slice before every
-`_work()` tick, so edits to `config.yaml` take effect without a restart.
+The config is a singleton. Every `read_config()` call checks the mtime of
+every `*.ini` file in the config directory and re-reads if anything changed.
+Workers re-read their config slice before every `_work()` tick, so dropping a
+new file into the config directory or editing an existing one takes effect
+without a restart (subject to the tick interval).
 
 A built-in `W_ConfigWatch` worker is started automatically on every run. It
 calls `read_config()` every `CONFIG_WATCH_INTERVAL` seconds (default `5`) to
@@ -165,92 +180,131 @@ keep the singleton fresh. No config entry is needed — it starts
 unconditionally.
 
 `write_config(data)` writes the full config atomically (`.tmp` +
-`os.replace`) and invalidates the cache.
+`os.replace`) to `runtime.ini` in the config directory and invalidates the
+cache.
 
 ## Environment variables
 
 | Variable        | Purpose                                                                |
 |-----------------|------------------------------------------------------------------------|
-| `CFGFILE_PATH`  | Override the config file location. Set by the systemd unit to `/etc/monda/config.yaml`. |
+| `CFG_DIR`  | Override the config directory. Set by the systemd unit to `/etc/monda`. |
 | `PSModulePath`  | Read by the terminal detector to apply Windows UTF-8 stdout fixes. Not user-set. |
+
+## INI format
+
+The config is a standard INI file parsed with Python's `configparser`. Keys
+preserve their case. Values are coerced: `true`/`false` → `bool`, bare
+integers → `int`, JSON arrays (e.g. `[1, 2]`) → `list`. Everything else is a
+string.
+
+### Section naming
+
+Section names encode the dict hierarchy using dots. The first component is a
+**namespace alias** that maps to a top-level config key:
+
+| Prefix    | Top-level key   |
+|-----------|-----------------|
+| `general` | root dict       |
+| `hik`     | `HIK_CONFIG`    |
+| `redis`   | `REDIS`         |
+| `led`     | `LED`           |
+| `telegram`| `TELEGRAM`      |
+| `worker`  | `WORKER_CONFIG` |
+| `job`     | `JOB_CONFIG`    |
+
+Remaining dot-separated components are nested dict keys used as-is:
+`[hik.CREDENTIALS.DACHA]` → `HIK_CONFIG["CREDENTIALS"]["DACHA"]`.
+
+### Dotted keys
+
+A key containing `.` within a section creates nested sub-dicts in place.
+This is equivalent to adding a sub-section and is most useful for `PARAMS`:
+
+```ini
+; Equivalent:
+[worker.W_Cron.main.JOBS.snap]
+PARAMS.HIK_DEVICE = reg_dacha
+
+; vs. sub-section:
+[worker.W_Cron.main.JOBS.snap.PARAMS]
+HIK_DEVICE = reg_dacha
+```
+
+Both forms are accepted by the reader and can be mixed freely.
 
 ## Example
 
-```yaml
-NAME: monda
-DEBUG: 1
-LOG_FILE: /var/log/monda.log
-TZ: Europe/Minsk
-CONFIG_WATCH_INTERVAL: 5
+```ini
+[general]
+NAME = monda
+DEBUG = 1
+LOG_FILE = /var/log/monda.log
+TZ = Europe/Minsk
+CONFIG_WATCH_INTERVAL = 5
 
-HIK_CONFIG:
-  CREDENTIALS:
-    DACHA:
-      USERNAME: admin
-      PASSWORD: secret
-  DEVICES:
-    reg_dacha:
-      ADDRESS: 10.71.1.128
-      CREDENTIALS: DACHA
-      PORT: "80"
-      PROTOCOL: http
-  EVENT_DEQUE_MAX_SIZE: 30
-  IGNORED_EVENTS:
-    videoloss:
-      - inactive
+[hik]
+EVENT_DEQUE_MAX_SIZE = 30
 
-REDIS:
-  HOST: 127.0.0.1
-  PORT: 6379
-  DB: 0
-  USERNAME: default
-  PASSWORD: redispass
+[hik.IGNORED_EVENTS]
+videoloss = ["inactive"]
 
-LED:
-  BASEDIR: /var/lib/led/inbox
+[hik.CREDENTIALS.DACHA]
+USERNAME = admin
+PASSWORD = secret
 
-TELEGRAM:
-  BOT_TOKEN: "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"
-  CHAT_IDS:
-    - 12345678
-    - 87654321
+[hik.DEVICES.reg_dacha]
+ADDRESS = 10.71.1.128
+CREDENTIALS = DACHA
+PORT = 80
+PROTOCOL = http
 
-WORKER_CONFIG:
-  W_HikProducer:
-    reg_dacha:
-      DEVICE: reg_dacha
-      INTERVAL: 5
-  W_HikConsumer:
-    main:
-      INTERVAL: 3
-  W_TelegramBot:
-    main:
-      INTERVAL: 5
-  W_Cron:
-    main:
-      INTERVAL: 5
-      JOBS:
-        snap_reg_dacha:
-          SCHEDULE: "*/5 * * * *"
-          JOB_CLASS: J_HikSnap
-          PARAMS:
-            HIK_DEVICE: reg_dacha
-            DEST_DIR: /var/lib/monda/snaps/reg_dacha
-            CHANNEL: "101"
-        arch_reg_dacha:
-          SCHEDULE: "0 * * * *"
-          JOB_CLASS: J_HikSnapArch
-          PARAMS:
-            SRC_DIR: /var/lib/monda/snaps/reg_dacha
-            DEST_DIR: /mnt/nfs/archive/reg_dacha
+[redis]
+HOST = 127.0.0.1
+PORT = 6379
+DB = 0
+USERNAME = default
+PASSWORD = redispass
 
-JOB_CONFIG:
-  J_HikAlertSnap:
-    ENABLED: true
-    ALERT_PERIOD: 15
-    reg_dacha:
-      HIK_DEVICE: reg_dacha
-      CHANNEL: "101"
+[led]
+BASEDIR = /var/lib/led/inbox
+
+[telegram]
+BOT_TOKEN = 123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11
+CHAT_IDS = [12345678, 87654321]
+
+[worker.W_HikProducer.reg_dacha]
+DEVICE = reg_dacha
+INTERVAL = 5
+
+[worker.W_HikConsumer.main]
+INTERVAL = 3
+
+[worker.W_TelegramBot.main]
+INTERVAL = 5
+
+[worker.W_Cron.main]
+INTERVAL = 5
+
+[worker.W_Cron.main.JOBS.snap_reg_dacha]
+SCHEDULE = */5 * * * *
+JOB_CLASS = J_HikSnap
+PARAMS.HIK_DEVICE = reg_dacha
+PARAMS.DEST_DIR = /var/lib/monda/snaps/reg_dacha
+PARAMS.CHANNEL = 101
+
+[worker.W_Cron.main.JOBS.arch_reg_dacha]
+SCHEDULE = 0 * * * *
+JOB_CLASS = J_HikSnapArch
+PARAMS.SRC_DIR = /var/lib/monda/snaps/reg_dacha
+PARAMS.DEST_DIR = /mnt/nfs/archive/reg_dacha
+
+[job.J_HikAlertSnap]
+ENABLED = true
+ALERT_PERIOD = 15
+
+[job.J_HikAlertSnap.reg_dacha]
+HIK_DEVICE = reg_dacha
+CHANNEL = 101
 ```
 
 ### What's optional vs. fatal

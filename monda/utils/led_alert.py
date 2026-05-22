@@ -1,15 +1,15 @@
 import json
+import logging
 import os
 import shutil
 import sys
 import time
 import uuid
-from pathlib import Path
 
 from monda.utils.logger import get_logger
 from monda.utils.misc import read_config
 
-logger = get_logger()
+logger: logging.Logger = get_logger()
 
 
 def send_alert(message: str, files: list[str] | None = None) -> None:

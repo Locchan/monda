@@ -40,22 +40,19 @@ from runtime config, or from both.
 
 Set `ENABLED: false` under the job class name to disable all instances:
 
-```yaml
-JOB_CONFIG:
-  J_HikAlertSnap:
-    ENABLED: false
+```ini
+[job.J_HikAlertSnap]
+ENABLED = false
 ```
 
 When disabled, `initialize()` returns `True` (so callers don't log errors)
 but `run()` silently returns `None` — no thread is spawned. `ENABLED`
 defaults to `true` when omitted. This is handled entirely in the base class.
 
-```yaml
-JOB_CONFIG:
-  J_HikAlertSnap:
-    front_cam:
-      HIK_DEVICE: cam_front
-      CHANNEL: "101"
+```ini
+[job.J_HikAlertSnap.front_cam]
+HIK_DEVICE = cam_front
+CHANNEL = 101
 ```
 
 ```python

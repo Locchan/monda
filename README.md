@@ -22,8 +22,9 @@ The installer:
 After installation:
 
 ```bash
-# 1. Create config (see docs/config.md)
-sudo nano /etc/monda/config.yaml
+# 1. Create config directory and add .ini files (see docs/config.md)
+sudo mkdir -p /etc/monda
+sudo nano /etc/monda/main.ini
 
 # 2. Enable and start
 sudo systemctl enable --now monda
@@ -40,17 +41,19 @@ python3 -m venv .venv
 .venv/bin/pip install -e .          # Linux / macOS
 # .venv\Scripts\pip install -e .    # Windows
 
-# 2. Create config.yaml (see docs/config.md)
+# 2. Create config directory and .ini files (see docs/config.md)
+mkdir config
+# add config/main.ini (or any *.ini files)
 
 # 3. Run
 monda
 ```
 
-Config file is resolved in this order:
+Config directory is resolved in this order:
 
-1. `CFGFILE_PATH` environment variable, if set.
-2. `./config.yaml` (current working directory).
-3. `/etc/monda/config.yaml` (system-wide, Linux).
+1. `CFG_DIR` environment variable, if set.
+2. `./config/` (current working directory).
+3. `/etc/monda/` (system-wide, Linux).
 
 ## How it works
 

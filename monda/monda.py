@@ -19,7 +19,7 @@ def _start_config_watcher() -> None:
     watcher.run()
 
 
-def main():
+def main() -> None:
     signal.signal(signal.SIGTERM, signal_stop)
     signal.signal(signal.SIGINT, signal_stop)
 

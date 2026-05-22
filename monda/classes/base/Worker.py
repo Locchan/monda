@@ -1,19 +1,21 @@
+import logging
 import os
 import time
 from threading import Thread
 
+from monda.utils.led_alert import send_alert
 from monda.utils.logger import get_logger
 from monda.utils.misc import read_config
 
-logger = get_logger()
+logger: logging.Logger = get_logger()
 
 class Worker:
 
-    worker_class_name = "Worker"
-    worker_class_name_short = "W:"
-    required_config_entries = []
+    worker_class_name: str = "Worker"
+    worker_class_name_short: str = "W:"
+    required_config_entries: list[str] = []
 
-    def __init__(self, name: str, interval_s: int):
+    def __init__(self, name: str, interval_s: int) -> None:
         if "-" in self.worker_class_name or '-' in name:
             logger.error("'-' is not allowed in worker class names or worker names.")
             os._exit(1)
@@ -26,11 +28,11 @@ class Worker:
         self.config = {}
         self.initialized = False
 
-    def _work(self):
+    def _work(self) -> None:
         logger.error(f"_work() method is not implemented in {self.__class__.__name__}")
         pass
 
-    def _initialize(self):
+    def _initialize(self) -> None:
         pass
 
     def initialize(self) -> bool:
@@ -64,6 +66,7 @@ class Worker:
         except BaseException as e:
             logger.error(f"Crashed with an exception: {e}")
             logger.error(str(e))
+            send_alert(f"Worker {self.name} crashed. Check monda logs.")
 
     def run(self) -> Thread | None:
         if not self.initialized:

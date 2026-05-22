@@ -1,11 +1,13 @@
+import logging
 import os
 import time
 from threading import Thread
 
+from monda.utils.led_alert import send_alert
 from monda.utils.logger import get_logger
 from monda.utils.misc import read_config
 
-logger = get_logger()
+logger: logging.Logger = get_logger()
 
 
 def _format_duration(seconds: float) -> str:
@@ -25,12 +27,12 @@ def _format_duration(seconds: float) -> str:
 
 class Job:
 
-    job_class_name = "Job"
-    job_class_name_short = "J:"
-    required_config_entries = []
-    disabled_jobs = []
+    job_class_name: str = "Job"
+    job_class_name_short: str = "J:"
+    required_config_entries: list[str] = []
+    disabled_jobs: list[type] = []
 
-    def __init__(self, name: str, job_config: dict | None = None, silent: bool = False):
+    def __init__(self, name: str, job_config: dict | None = None, silent: bool = False) -> None:
         if "-" in self.job_class_name or '-' in name:
             logger.error("'-' is not allowed in job class names or job names.")
             os._exit(1)
@@ -50,10 +52,10 @@ class Job:
         else:
             logger.info(message)
 
-    def _work(self):
+    def _work(self) -> None:
         logger.error(f"_work() method is not implemented in {self.__class__.__name__}")
 
-    def _initialize(self):
+    def _initialize(self) -> None:
         pass
 
     def initialize(self) -> bool:
@@ -91,6 +93,7 @@ class Job:
         except Exception as e:
             elapsed = _format_duration(time.monotonic() - started)
             logger.exception(f"'{self.name}' failed after {elapsed}: {e}")
+            send_alert(f"Job {self.name} failed. Check monda logs.")
             return
         elapsed = _format_duration(time.monotonic() - started)
         self._info(f"'{self.name}' finished in {elapsed}")

@@ -6,28 +6,22 @@ from monda.utils.misc import read_config, set_config_entry
 
 logger = get_logger()
 
+# docs/workers.md
 
-def _cmd_hik_sender(args: str) -> str:
-    if args not in ("enable", "disable"):
-        return "Usage: /hik_sender {enable|disable}"
-
-    desired = args == "enable"
+def _cmd_hik_sender(_args: str) -> str:
     current = (read_config()
                .get("JOB_CONFIG", {})
                .get("J_HikAlertSnap", {})
                .get("ENABLED", True))
 
-    if current == desired:
-        state = "enabled" if desired else "disabled"
-        return f"Hik sender is already {state}."
-
+    desired = not current
     set_config_entry("JOB_CONFIG/J_HikAlertSnap/ENABLED", desired)
     action = "Enabled" if desired else "Disabled"
     return f"{action} Hik sender job."
 
 
 COMMANDS = {
-    "/hik_sender": (_cmd_hik_sender, "Enable or disable Hik snapshot alerts"),
+    "/hik_sender": (_cmd_hik_sender, "Toggle Hik snapshot alerts on/off"),
     "/help": (None, "Show available commands"),
 }
 

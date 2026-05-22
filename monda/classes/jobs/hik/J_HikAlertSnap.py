@@ -1,3 +1,4 @@
+import logging
 import os
 import tempfile
 import time
@@ -10,9 +11,10 @@ from monda.utils.led_alert import send_alert
 from monda.utils.logger import get_logger
 from monda.utils.misc import read_config
 
-logger = get_logger()
+logger: logging.Logger = get_logger()
 
 
+# docs/jobs.md
 class J_HikAlertSnap(Job):
 
     job_class_name = "J_HikAlertSnap"
@@ -34,7 +36,7 @@ class J_HikAlertSnap(Job):
         cls._last_snap[device_key] = now
         return True
 
-    def _initialize(self):
+    def _initialize(self) -> bool:
         config = read_config()
         hik_config = config.get("HIK_CONFIG", {})
 
@@ -58,7 +60,7 @@ class J_HikAlertSnap(Job):
 
         return True
 
-    def _work(self):
+    def _work(self) -> None:
         config = read_config()
         hik_config = config.get("HIK_CONFIG", {})
         device_key = self.config["HIK_DEVICE"]

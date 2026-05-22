@@ -1,3 +1,4 @@
+import logging
 import os
 from datetime import datetime
 
@@ -8,7 +9,7 @@ from monda.classes.base.Job import Job
 from monda.utils.logger import get_logger
 from monda.utils.misc import read_config
 
-logger = get_logger()
+logger: logging.Logger = get_logger()
 
 
 class J_HikSnap(Job):
@@ -54,9 +55,19 @@ class J_HikSnap(Job):
         snap_url = f"{proto}://{device['ADDRESS']}:{port}/ISAPI/Streaming/channels/{channel}/picture"
 
         self._info(f"Requesting snapshot from {snap_url}")
-        response = requests.get(snap_url, auth=HTTPDigestAuth(creds["USERNAME"], creds["PASSWORD"]), timeout=10)
-        if response.status_code != 200:
-            raise RuntimeError(f"Snapshot request failed: HTTP {response.status_code}")
+        auth = HTTPDigestAuth(creds["USERNAME"], creds["PASSWORD"])
+        last_exc: Exception = RuntimeError("unreachable")
+        for attempt in range(6):
+            try:
+                response = requests.get(snap_url, auth=auth, timeout=2)
+                if response.status_code == 200:
+                    break
+                last_exc = RuntimeError(f"Snapshot request failed: HTTP {response.status_code}")
+            except requests.RequestException as e:
+                last_exc = e
+            logger.warning(f"Snapshot attempt {attempt + 1}/6 failed: {last_exc}")
+        else:
+            raise last_exc
 
         os.makedirs(dest_dir, exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")

@@ -1,3 +1,4 @@
+import logging
 import threading
 
 import redis
@@ -6,9 +7,9 @@ from monda.utils.logger import get_logger
 from monda.utils.misc import read_config
 
 _client: redis.Redis | None = None
-_lock = threading.Lock()
+_lock: threading.Lock = threading.Lock()
 
-logger = get_logger()
+logger: logging.Logger = get_logger()
 
 def get_redis_client() -> redis.Redis:
     """Return the process-wide Redis client. Builds one on first use."""

@@ -1,2 +1,2 @@
-TERMINAL_POWERSHELL = "powershell"
+TERMINAL_POWERSHELL: str = "powershell"
 

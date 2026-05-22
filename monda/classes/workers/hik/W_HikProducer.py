@@ -1,4 +1,6 @@
 import json
+import logging
+from collections.abc import Generator
 
 import redis as redis_lib
 import requests
@@ -11,18 +13,19 @@ from monda.utils.logger import get_logger
 from monda.utils.misc import read_config
 from monda.utils.redis_client import get_redis_client, reset_redis_client
 
-logger = get_logger()
+logger: logging.Logger = get_logger()
 
+# docs/hik.md
 class W_HikProducer(Worker):
 
-    alerts_buffer = []
+    alerts_buffer: list[str] = []
 
     worker_class_name = "W_HikProducer"
     worker_class_name_short = "W:HikProd"
 
     required_config_entries = ["DEVICE"]
 
-    def _resolve_device(self):
+    def _resolve_device(self) -> tuple[HTTPDigestAuth, str, str]:
         config = read_config()
         hik_config = config.get("HIK_CONFIG", {})
         device_key = self.config["DEVICE"]
@@ -48,7 +51,7 @@ class W_HikProducer(Worker):
         )
         return auth, alert_url, username
 
-    def process_alert(self, alert: str):
+    def process_alert(self, alert: str) -> None:
         event = HikEvent.from_xml(alert, source=self._instance_name)
         if is_ignored_event(event.name, event.state):
             return
@@ -58,9 +61,10 @@ class W_HikProducer(Worker):
         elif len(HikEvents) > (max_size / 2):
             logger.warn(f"HikEvent queue is more than half-full ({max_size}).")
         HikEvents.append(event)
-        self._drain_to_redis()
+        if self._use_redis:
+            self._drain_to_redis()
 
-    def _drain_to_redis(self):
+    def _drain_to_redis(self) -> None:
         while HikEvents:
             try:
                 event = HikEvents.popleft()
@@ -74,7 +78,7 @@ class W_HikProducer(Worker):
                 logger.warning(f"Redis push failed, kept in local queue ({len(HikEvents)} pending): {e}")
                 return
 
-    def _stream_alerts(self, auth, alert_url, username):
+    def _stream_alerts(self, auth: HTTPDigestAuth, alert_url: str, username: str) -> Generator[str, None, None]:
         with requests.get(alert_url, auth=auth, stream=True, timeout=None) as response:
             if response.status_code != 200:
                 logger.warning(f"Could not connect to alert stream ({alert_url}) as '{username}': {response.status_code}")
@@ -96,13 +100,16 @@ class W_HikProducer(Worker):
                         buffer = []
 
 
-    def _initialize(self):
+    def _initialize(self) -> bool:
+        self._use_redis: bool = self.config.get("USE_REDIS", False)
         self._resolve_device()
-        get_redis_client()
+        if self._use_redis:
+            get_redis_client()
         return True
 
-    def _work(self):
-        self._drain_to_redis()
+    def _work(self) -> None:
+        if self._use_redis:
+            self._drain_to_redis()
         auth, alert_url, username = self._resolve_device()
         for alert in self._stream_alerts(auth, alert_url, username):
             self.process_alert(alert)

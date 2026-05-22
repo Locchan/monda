@@ -5,7 +5,7 @@ After=network.target
 [Service]
 Type=simple
 Environment=PYTHONUNBUFFERED=1
-Environment=CFGFILE_PATH=/etc/monda/config.yaml
+Environment=CFG_DIR=/etc/monda/config
 ExecStart=%MONDA_BIN%
 Restart=on-failure
 RestartSec=5

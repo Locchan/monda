@@ -71,14 +71,12 @@ construct  →  initialize()  →  run()  →  _run() loop  →  (death)  →  r
    }
    ```
 
-3. Add an instance to `config.yaml`:
+3. Add an instance to `config.ini`:
 
-   ```yaml
-   WORKER_CONFIG:
-     W_MyThing:
-       my_instance:
-         FOO: bar
-         INTERVAL: 30
+   ```ini
+   [worker.W_MyThing.my_instance]
+   FOO = bar
+   INTERVAL = 30
    ```
 
 ## W_Cron
@@ -94,18 +92,15 @@ concurrent even though the scheduling check is sequential.
 
 ### Config
 
-```yaml
-WORKER_CONFIG:
-  W_Cron:
-    main:
-      INTERVAL: 5
-      JOBS:                       # required, non-empty dict
-        <job_instance_name>:
-          SCHEDULE: "* * * * *"  # standard 5-field crontab expression
-          JOB_CLASS: J_SomeJob   # must be registered in ENABLED_JOBS
-          SILENT: false           # optional; suppress routine INFO logs (default false)
-          PARAMS:                 # optional; passed as runtime config to the job
-            KEY: value
+```ini
+[worker.W_Cron.main]
+INTERVAL = 5
+
+[worker.W_Cron.main.JOBS.<job_instance_name>]
+SCHEDULE = * * * * *   ; standard 5-field crontab expression
+JOB_CLASS = J_SomeJob  ; must be registered in ENABLED_JOBS
+SILENT = false          ; optional; suppress routine INFO logs (default false)
+PARAMS.KEY = value      ; optional; dotted keys create the PARAMS sub-dict
 ```
 
 `SCHEDULE` uses standard five-field crontab syntax (`min hour dom month dow`).

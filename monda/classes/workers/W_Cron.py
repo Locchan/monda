@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 
 from croniter import croniter
@@ -6,9 +7,10 @@ from monda.classes.base.Worker import Worker
 from monda.classes.jobs import ENABLED_JOBS
 from monda.utils.logger import get_logger
 
-logger = get_logger()
+logger: logging.Logger = get_logger()
 
 
+# docs/workers.md
 class W_Cron(Worker):
 
     worker_class_name = "W_Cron"
@@ -16,7 +18,7 @@ class W_Cron(Worker):
 
     required_config_entries = ["JOBS"]
 
-    def __init__(self, name: str, interval_s: int):
+    def __init__(self, name: str, interval_s: int) -> None:
         super().__init__(name, interval_s)
         self._last_check: datetime | None = None
 

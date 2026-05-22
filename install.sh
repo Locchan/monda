@@ -119,7 +119,7 @@ fi
 cat <<EOF
 
 Done. Next steps:
-  1. Create $CONFIG_DIR/config.yaml (see docs/config.md).
+  1. Add *.ini files to $CONFIG_DIR/ (see docs/config.md).
   2. systemctl enable --now monda
   3. journalctl -u monda -f   # to watch logs
 EOF

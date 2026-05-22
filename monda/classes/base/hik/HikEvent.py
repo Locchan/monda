@@ -1,17 +1,18 @@
 import datetime
+import logging
 import xml.etree.ElementTree as ET
 from zoneinfo import ZoneInfo
 
 from monda.utils.logger import get_logger
 from monda.utils.misc import read_config
 
-logger = get_logger()
+logger: logging.Logger = get_logger()
 
 
 class HikEvent:
-    NS = {"h": "http://www.hikvision.com/ver20/XMLSchema"}
+    NS: dict[str, str] = {"h": "http://www.hikvision.com/ver20/XMLSchema"}
 
-    def __init__(self, name, state, date, source):
+    def __init__(self, name: str, state: str, date: str, source: str) -> None:
         config = read_config()
         self.name = name
         self.state = state
@@ -22,7 +23,7 @@ class HikEvent:
         self.date = dt.replace(tzinfo=tz) if dt.tzinfo is None else dt.astimezone(tz)
         logger.debug(repr(self))
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"HikEvent(source={self.source!r}, name={self.name!r}, state={self.state!r}, date={self.date.isoformat()})"
 
     @classmethod
@@ -35,7 +36,7 @@ class HikEvent:
             source=source,
         )
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, str]:
         return {
             "name": self.name,
             "state": self.state,
