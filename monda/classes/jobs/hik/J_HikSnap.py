@@ -1,3 +1,4 @@
+import logging
 import os
 from datetime import datetime
 
@@ -8,9 +9,10 @@ from monda.classes.base.Job import Job
 from monda.utils.logger import get_logger
 from monda.utils.misc import read_config
 
-logger = get_logger()
+logger: logging.Logger = get_logger()
 
 
+# docs/jobs.md
 class J_HikSnap(Job):
 
     job_class_name = "J_HikSnap"

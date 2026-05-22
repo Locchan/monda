@@ -60,10 +60,11 @@ Hik device ──HTTP alertStream──▶ W_HikProducer ──RPUSH──▶ Re
 
 Each instance lives under `WORKER_CONFIG.W_HikProducer.<instance_name>`.
 
-| Key        | Type   | Required | Default | Purpose                                                          |
-|------------|--------|----------|---------|------------------------------------------------------------------|
-| `DEVICE`   | string | yes      | —       | Name of an entry under `HIK_CONFIG.DEVICES`.                     |
-| `INTERVAL` | int    | no       | `10`    | Seconds between reconnect attempts when the stream ends.         |
+| Key         | Type   | Required | Default | Purpose                                                          |
+|-------------|--------|----------|---------|------------------------------------------------------------------|
+| `DEVICE`    | string | yes      | —       | Name of an entry under `HIK_CONFIG.DEVICES`.                     |
+| `INTERVAL`  | int    | no       | `10`    | Seconds between reconnect attempts when the stream ends.         |
+| `USE_REDIS` | bool   | no       | `false` | Push events to Redis for cross-process consumption. When `false`, events stay in the in-process deque only and no Redis connection is made. |
 
 The referenced device entry in `HIK_CONFIG.DEVICES` provides `ADDRESS`,
 `CREDENTIALS`, `PORT`, and `PROTOCOL` (see [config.md](config.md#hik_configdevicesname)).
@@ -119,11 +120,18 @@ Throughput tuning: per-tick capacity is `BATCH_SIZE` events; sustained rate
 is `BATCH_SIZE / INTERVAL` events/sec. The default 500 + 1s gives 500 ev/s
 on a single consumer, well above typical Hikvision event rates.
 
-No required config beyond what `Worker` provides. `INTERVAL` controls poll
-rate. The consumer uses the shared process-wide Redis client.
+| Key         | Type | Required | Default | Purpose                                                                    |
+|-------------|------|----------|---------|----------------------------------------------------------------------------|
+| `INTERVAL`  | int  | no       | `10`    | Seconds between drain ticks.                                               |
+| `USE_REDIS` | bool | no       | `false` | Read events from Redis instead of the in-process deque. Must match the producer's `USE_REDIS` setting. When `false`, no Redis connection is made. |
 
 `process_event` filters via `known_event_types` and `is_ignored_event`.
-Unknown event types are forwarded to LED as alerts.
+Unknown event types are forwarded to LED as alerts. Known types:
+
+| Event type  | Meaning                            | Handler                              |
+|-------------|------------------------------------|--------------------------------------|
+| `videoloss` | Video signal lost / camera offline | no action (suppresses unknown alert) |
+| `VMD`       | Motion detection                   | triggers `J_HikAlertSnap` job        |
 
 **VMD handling:** when `process_event` receives a `VMD` (motion detection)
 event, it resolves the source producer's `DEVICE` from `WORKER_CONFIG` and

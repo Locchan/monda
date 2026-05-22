@@ -1,3 +1,4 @@
+import logging
 import os
 import shutil
 import tarfile
@@ -9,9 +10,10 @@ import zstandard
 from monda.classes.base.Job import Job
 from monda.utils.logger import get_logger
 
-logger = get_logger()
+logger: logging.Logger = get_logger()
 
 
+# docs/jobs.md
 class J_HikSnapArch(Job):
 
     job_class_name = "J_HikSnapArch"

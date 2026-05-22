@@ -1,6 +1,7 @@
 import json
 import os
 import signal
+from typing import Any
 
 import yaml
 from art import text2art
@@ -10,7 +11,7 @@ _config_mtime: float | None = None
 _config: dict = {}
 
 
-def read_config(filepath=None):
+def read_config(filepath: str | None = None) -> dict:
     global _config_filepath, _config_mtime, _config
 
     if _config_filepath is None:
@@ -61,7 +62,7 @@ def read_config(filepath=None):
     return _config
 
 
-def write_config(data, filepath=None):
+def write_config(data: dict, filepath: str | None = None) -> None:
     global _config_mtime
     path = filepath or _config_filepath
     if path is None:
@@ -96,7 +97,7 @@ def _navigate(data: dict, keys: list[str]) -> dict:
     return node
 
 
-def set_config_entry(path: str, value) -> None:
+def set_config_entry(path: str, value: Any) -> None:
     config = read_config()
     keys = path.split("/")
     parent = _navigate(config, keys[:-1])
@@ -108,7 +109,7 @@ def set_config_entry(path: str, value) -> None:
     write_config(config)
 
 
-def append_config_entry(path: str, value) -> None:
+def append_config_entry(path: str, value: Any) -> None:
     config = read_config()
     keys = path.split("/")
     parent = _navigate(config, keys[:-1])
@@ -123,14 +124,14 @@ def append_config_entry(path: str, value) -> None:
     write_config(config)
 
 
-def signal_stop(_signo, _stack_frame):
+def signal_stop(_signo: int, _stack_frame: object) -> None:
     from monda.utils.logger import get_logger
     logger = get_logger()
     logger.info(f"Caught {signal.Signals(_signo).name}. Shutting down...")
     os._exit(0)
 
 
-def splash():
+def splash() -> None:
     from monda.utils.logger import get_logger
     logger = get_logger()
     splash_text = text2art("MonDa", font="Chunky")

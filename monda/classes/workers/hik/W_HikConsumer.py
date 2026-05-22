@@ -1,4 +1,5 @@
 import json
+import logging
 from typing import cast
 
 import redis as redis_lib
@@ -6,14 +7,15 @@ import redis as redis_lib
 from monda.classes.base.Worker import Worker
 from monda.classes.base.hik.HikEvent import HikEvent
 from monda.classes.jobs.hik.J_HikAlertSnap import J_HikAlertSnap
-from monda.classes.workers import HIK_EVENTS_TOPIC, is_ignored_event
+from monda.classes.workers import HIK_EVENTS_TOPIC, HikEvents, is_ignored_event
 from monda.utils.led_alert import send_alert
 from monda.utils.logger import get_logger
 from monda.utils.misc import read_config
 from monda.utils.redis_client import get_redis_client, reset_redis_client
 
-logger = get_logger()
+logger: logging.Logger = get_logger()
 
+# docs/hik.md
 class W_HikConsumer(Worker):
 
     worker_class_name = "W_HikConsumer"
@@ -21,16 +23,12 @@ class W_HikConsumer(Worker):
 
     required_config_entries = []
 
-    # Max events drained per _work tick. One LPOP returns up to this many in
-    # a single round-trip; with Redis 6.2+ this is the main throughput knob.
-    BATCH_SIZE = 500
+    BATCH_SIZE: int = 500
 
-    # videoloss - failed to write video data, losing video
-    # VMD - motion detection
-    known_event_types = ["videoloss", "VMD"]
+    known_event_types: list[str] = ["videoloss", "VMD"]
 
 
-    def __init__(self, name: str, interval_s: int):
+    def __init__(self, name: str, interval_s: int) -> None:
         super().__init__(name, interval_s)
 
     def process_event(self, event: HikEvent) -> None:
@@ -60,14 +58,24 @@ class W_HikConsumer(Worker):
         if job.initialize():
             job.run()
 
-    def _initialize(self):
-        # Validate REDIS section exists and is reachable enough to build a client.
-        get_redis_client()
+    def _initialize(self) -> bool:
+        self._use_redis: bool = self.config.get("USE_REDIS", False)
+        if self._use_redis:
+            get_redis_client()
         return True
 
-    def _work(self):
-        # One round-trip: LPOP returns up to BATCH_SIZE entries as a list.
-        # cast() narrows redis-py's Awaitable[T] | T stub union to T (sync client).
+    def _work(self) -> None:
+        if not self._use_redis:
+            count = 0
+            while HikEvents and count < self.BATCH_SIZE:
+                try:
+                    event = HikEvents.popleft()
+                except IndexError:
+                    break
+                self.process_event(event)
+                logger.debug(f"Consumed: {event!r}")
+                count += 1
+            return
         try:
             batch = cast(list[str] | None, get_redis_client().lpop(HIK_EVENTS_TOPIC, self.BATCH_SIZE))
         except redis_lib.RedisError as e:

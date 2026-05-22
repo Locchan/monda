@@ -9,8 +9,8 @@ class W_ConfigWatch(Worker):
 
     required_config_entries = []
 
-    def _initialize(self):
+    def _initialize(self) -> bool:
         return True
 
-    def _work(self):
+    def _work(self) -> None:
         read_config()

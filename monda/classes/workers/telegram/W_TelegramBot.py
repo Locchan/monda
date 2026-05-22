@@ -6,6 +6,7 @@ from monda.utils.misc import read_config, set_config_entry
 
 logger = get_logger()
 
+# docs/workers.md
 
 def _cmd_hik_sender(_args: str) -> str:
     current = (read_config()
