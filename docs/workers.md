@@ -126,6 +126,30 @@ To add a new job class to the scheduler, register it in
   and is used as the thread name and in log messages. Subclasses must not
   set `self.name` manually.
 
+## W_TelegramBot
+
+Polls for Telegram messages and dispatches bot commands. Requires the
+`TELEGRAM` section in `config.yaml` (see [config.md](config.md)).
+
+### Commands
+
+| Command        | Description                                    |
+|----------------|------------------------------------------------|
+| `/hik_sender`  | Toggle `J_HikAlertSnap` on or off (no arguments). |
+| `/help`        | List all available commands.                   |
+
+Only messages from chat IDs listed in `TELEGRAM.CHAT_IDS` are processed.
+Messages not starting with `/` are silently ignored.
+
+### Config
+
+```yaml
+WORKER_CONFIG:
+  W_TelegramBot:
+    main:
+      INTERVAL: 2
+```
+
 ## Resurrection
 
 The main loop tracks a list of `(thread, worker_type, instance_name)` tuples.
