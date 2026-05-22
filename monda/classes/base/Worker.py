@@ -2,6 +2,7 @@ import os
 import time
 from threading import Thread
 
+from monda.utils.led_alert import send_alert
 from monda.utils.logger import get_logger
 from monda.utils.misc import read_config
 
@@ -64,6 +65,7 @@ class Worker:
         except BaseException as e:
             logger.error(f"Crashed with an exception: {e}")
             logger.error(str(e))
+            send_alert(f"Worker {self.name} crashed. Check monda logs.")
 
     def run(self) -> Thread | None:
         if not self.initialized:

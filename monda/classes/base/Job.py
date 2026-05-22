@@ -2,6 +2,7 @@ import os
 import time
 from threading import Thread
 
+from monda.utils.led_alert import send_alert
 from monda.utils.logger import get_logger
 from monda.utils.misc import read_config
 
@@ -91,6 +92,7 @@ class Job:
         except Exception as e:
             elapsed = _format_duration(time.monotonic() - started)
             logger.exception(f"'{self.name}' failed after {elapsed}: {e}")
+            send_alert(f"Job {self.name} failed. Check monda logs.")
             return
         elapsed = _format_duration(time.monotonic() - started)
         self._info(f"'{self.name}' finished in {elapsed}")
