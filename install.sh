@@ -9,6 +9,7 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 VENV_DIR=/opt/monda/venv
 CONFIG_DIR=/etc/monda
+CONFIG_FILE="$CONFIG_DIR/config.json"
 MIN_PYTHON="3.10"
 
 # If this checkout is a git repo and the local branch is behind its upstream,
@@ -119,7 +120,7 @@ fi
 cat <<EOF
 
 Done. Next steps:
-  1. Add *.ini files to $CONFIG_DIR/ (see docs/config.md).
+  1. Place your config at $CONFIG_FILE (see docs/config.md).
   2. systemctl enable --now monda
   3. journalctl -u monda -f   # to watch logs
 EOF

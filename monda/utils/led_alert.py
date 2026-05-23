@@ -12,20 +12,13 @@ from monda.utils.misc import read_config
 logger: logging.Logger = get_logger()
 
 
-def send_alert(message: str, files: list[str] | None = None) -> None:
+def send_alert(message: str, target: str = "general", files: list[str] | None = None) -> None:
     """Hand an alert to the led integration if configured; otherwise stderr-fallback.
 
-    led integration: writes <basedir>/alert_<ts>_<rand>.json with
-        {"message": <msg>, "files": [<relative paths>...]}.
-    Attached files are moved into <basedir> first so the paths in the JSON
-    resolve relative to it. The JSON is written via .tmp + os.replace so a
-    watcher never sees a half-written file.
-
-    Fallback (no LED.BASEDIR in config): prints "Alert: <msg>" to stderr and
-    deletes any attached files instead of leaking them.
+    target: key under LED_TARGETS in config (e.g. "general", "dacha_alerts").
     """
     files = files or []
-    basedir = read_config().get("LED", {}).get("BASEDIR")
+    basedir = read_config().get("LED_TARGETS", {}).get(target, {}).get("BASEDIR")
 
     if not basedir:
         print(f"Alert: {message}", file=sys.stderr)
@@ -59,4 +52,4 @@ def send_alert(message: str, files: list[str] | None = None) -> None:
     with open(tmp_path, "w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2, ensure_ascii=False)
     os.replace(tmp_path, final_path)
-    logger.info(f"Wrote led alert: {message}. Files: {relative_paths}.")
+    logger.info(f"Wrote led alert to '{target}': {message}. Files: {relative_paths}.")

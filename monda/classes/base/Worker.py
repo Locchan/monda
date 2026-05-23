@@ -66,7 +66,7 @@ class Worker:
         except BaseException as e:
             logger.error(f"Crashed with an exception: {e}")
             logger.error(str(e))
-            send_alert(f"Worker {self.name} crashed. Check monda logs.")
+            send_alert(f"Worker {self.name} crashed. Check monda logs.", target="general")
 
     def run(self) -> Thread | None:
         if not self.initialized:

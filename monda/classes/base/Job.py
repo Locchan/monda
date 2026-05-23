@@ -93,7 +93,7 @@ class Job:
         except Exception as e:
             elapsed = _format_duration(time.monotonic() - started)
             logger.exception(f"'{self.name}' failed after {elapsed}: {e}")
-            send_alert(f"Job {self.name} failed. Check monda logs.")
+            send_alert(f"Job {self.name} failed. Check monda logs.", target="general")
             return
         elapsed = _format_duration(time.monotonic() - started)
         self._info(f"'{self.name}' finished in {elapsed}")

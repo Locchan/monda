@@ -35,7 +35,7 @@ class W_HikConsumer(Worker):
         if is_ignored_event(event.name, event.state):
             return
         if event.name not in self.known_event_types:
-            send_alert(f"Unknown Hik event: {event.name} ({event.state}) from {event.source}")
+            send_alert(f"Unknown Hik event: {event.name} ({event.state}) from {event.source}", target="general")
             return
         if event.name == "VMD":
             self._handle_vmd(event)
