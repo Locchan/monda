@@ -155,6 +155,220 @@ Messages not starting with `/` are silently ignored.
 }
 ```
 
+## W_BackupWatcherRaw
+
+Checks a set of named directories (including subdirectories) for recent files.
+On every tick it finds the newest file mtime in each tree. If that mtime is
+older than `now - (EXPECTED_PERIOD_MINUTES + PERMITTED_LAG_MINUTES) * 60`, or
+if the directory contains no files at all, a `send_alert` is fired with the
+backup name and the timestamp of the last file found.
+
+Alerts are deduplicated per backup: at most one alert is sent per 24 hours for
+a given backup entry. The cooldown resets as soon as the backup recovers, so
+a subsequent failure alerts immediately.
+
+### Config
+
+| Key            | Type   | Required | Default     | Purpose                                                        |
+|----------------|--------|----------|-------------|----------------------------------------------------------------|
+| `BACKUPS`      | object | yes      | —           | Dict of named backup entries (see below).                      |
+| `ALERT_TARGET` | string | no       | `"general"` | LED target name passed to `send_alert`.                        |
+| `INTERVAL`     | int    | no       | `10`        | Seconds between checks. Set to e.g. `3600` for hourly checks. |
+
+Each entry under `BACKUPS`:
+
+| Key                      | Type   | Required | Purpose                                    |
+|--------------------------|--------|----------|--------------------------------------------|
+| `PATH`                   | string | yes      | Root directory to scan (recursively).      |
+| `EXPECTED_PERIOD_MINUTES`| int    | yes      | How often a fresh backup is expected.      |
+| `PERMITTED_LAG_MINUTES`  | int    | yes      | Grace period added on top of the period.   |
+
+```json
+"WORKER_CONFIG": {
+  "W_BackupWatcherRaw": {
+    "main": {
+      "INTERVAL": 3600,
+      "ALERT_TARGET": "general",
+      "BACKUPS": {
+        "photos": {
+          "PATH": "/mnt/backup/photos",
+          "EXPECTED_PERIOD_MINUTES": 1440,
+          "PERMITTED_LAG_MINUTES": 120
+        }
+      }
+    }
+  }
+}
+```
+
+## W_BackupWatcherBorg
+
+Checks a set of named Borg repositories for recent archives. On every tick it
+runs `borg list --last 1 --json <path>` for each repo and reads the `start`
+timestamp of the latest archive. If that timestamp is older than
+`now - (EXPECTED_PERIOD_MINUTES + PERMITTED_LAG_MINUTES) * 60`, or if there
+are no archives at all, a `send_alert` is fired. If `borg list` fails (non-zero
+exit), an alert is also sent with the error output.
+
+Alerts are deduplicated per backup: at most one alert is sent per 24 hours for
+a given backup entry. The cooldown resets as soon as the backup recovers, so
+a subsequent failure alerts immediately.
+
+Borg is invoked as a subprocess. The `borg` binary must be on `PATH`.
+
+### Config
+
+| Key            | Type   | Required | Default     | Purpose                                                        |
+|----------------|--------|----------|-------------|----------------------------------------------------------------|
+| `BACKUPS`      | object | yes      | —           | Dict of named repository entries (see below).                  |
+| `ALERT_TARGET` | string | no       | `"general"` | LED target name passed to `send_alert`.                        |
+| `INTERVAL`     | int    | no       | `10`        | Seconds between checks.                                        |
+
+Each entry under `BACKUPS`:
+
+| Key                      | Type   | Required | Purpose                                           |
+|--------------------------|--------|----------|---------------------------------------------------|
+| `PATH`                   | string | yes      | Path to the Borg repository.                      |
+| `EXPECTED_PERIOD_MINUTES`| int    | yes      | How often a fresh backup is expected.             |
+| `PERMITTED_LAG_MINUTES`  | int    | yes      | Grace period added on top of the period.          |
+| `PASSPHRASE`             | string | no       | Borg repo passphrase (`BORG_PASSPHRASE` env var). |
+
+```json
+"WORKER_CONFIG": {
+  "W_BackupWatcherBorg": {
+    "main": {
+      "INTERVAL": 3600,
+      "BACKUPS": {
+        "dacha_borg": {
+          "PATH": "/mnt/backup/borg/dacha",
+          "EXPECTED_PERIOD_MINUTES": 1440,
+          "PERMITTED_LAG_MINUTES": 120,
+          "PASSPHRASE": "secret"
+        }
+      }
+    }
+  }
+}
+```
+
+## W_SSHLoginWatcher
+
+Fires a `send_alert` for every successful SSH login. No deduplication —
+each login is a discrete security event.
+
+### Source detection
+
+The worker resolves its event source at `_initialize` time in this order:
+
+1. **`LOG_PATH` config key** — use the specified file directly.
+2. **Auto-detect** — try these paths in order, use the first readable one:
+   - `/var/log/audit/audit.log` (auditd — RHEL/Fedora)
+   - `/var/log/auth.log` (rsyslog — Debian/Ubuntu)
+   - `/var/log/secure` (rsyslog — RHEL alternative)
+3. **journalctl fallback** — if no readable file is found, query
+   `journalctl -u ssh -u sshd` (covers both Debian's `ssh.service` and
+   `sshd.service` on other distros).
+
+### File mode
+
+Tracks the file by inode + offset. On startup the worker seeks to the current
+end so historical entries do not generate alerts. Log rotation (inode change)
+and truncation (size < position) are detected and reset the read position.
+
+Two line parsers are used automatically:
+- **audit format** (path contains `audit`): parses `type=USER_LOGIN` lines
+  with `res=success` and `sshd` in the exe; extracts `acct=` (with hex
+  decode) and `addr=`.
+- **syslog format** (`auth.log`, `secure`): matches
+  `sshd[N]: Accepted <method> for <user> from <addr>`.
+
+### journalctl mode
+
+Uses `--cursor-file` to track read position across ticks and process
+restarts. The cursor file is written to the system temp directory as
+`monda_ssh_cursor_<instance_name>`. On first run the cursor is initialised
+to the current journal end so old events are not replayed. If `journalctl`
+is unavailable or fails, `_initialize` returns `False` and the worker does
+not start.
+
+### Config
+
+| Key            | Type   | Required | Default     | Purpose                                      |
+|----------------|--------|----------|-------------|----------------------------------------------|
+| `LOG_PATH`     | string | no       | auto-detect | Explicit path to a log file. Skips detection.|
+| `ALERT_TARGET` | string | no       | `"general"` | LED target name passed to `send_alert`.      |
+| `INTERVAL`     | int    | no       | `10`        | Seconds between reads.                       |
+
+```json
+"WORKER_CONFIG": {
+  "W_SSHLoginWatcher": {
+    "main": {
+      "INTERVAL": 10,
+      "ALERT_TARGET": "general"
+    }
+  }
+}
+```
+
+## W_SystemdWatcher
+
+Queries `systemctl` for failed services on every tick and fires a
+`send_alert` for each one found. Alerts are deduplicated per service name:
+at most one alert per 24 hours. The cooldown for a service is cleared as soon
+as it leaves the failed state, so a subsequent failure alerts immediately.
+
+`systemctl` is invoked as a subprocess and must be available on `PATH`.
+
+### Config
+
+| Key            | Type        | Required | Default     | Purpose                                   |
+|----------------|-------------|----------|-------------|-------------------------------------------|
+| `ALERT_TARGET` | string      | no       | `"general"` | LED target name passed to `send_alert`.   |
+| `IGNORE`       | list[string]| no       | `[]`        | Service unit names to exclude from alerts.|
+| `INTERVAL`     | int         | no       | `10`        | Seconds between checks.                   |
+
+```json
+"WORKER_CONFIG": {
+  "W_SystemdWatcher": {
+    "main": {
+      "INTERVAL": 60,
+      "ALERT_TARGET": "general",
+      "IGNORE": ["user@1000.service"]
+    }
+  }
+}
+```
+
+## W_DockerWatcher
+
+Queries `docker ps -a` on every tick and fires a `send_alert` for each
+container whose state is `exited` or `dead`. Alerts are deduplicated per
+container name: at most one alert per 24 hours. The cooldown for a container
+is cleared as soon as it leaves an alerting state.
+
+`docker` is invoked as a subprocess and must be available on `PATH`. The
+process user must have permission to query the Docker daemon.
+
+### Config
+
+| Key            | Type        | Required | Default     | Purpose                                        |
+|----------------|-------------|----------|-------------|------------------------------------------------|
+| `ALERT_TARGET` | string      | no       | `"general"` | LED target name passed to `send_alert`.        |
+| `IGNORE`       | list[string]| no       | `[]`        | Container names to exclude from alerts.        |
+| `INTERVAL`     | int         | no       | `10`        | Seconds between checks.                        |
+
+```json
+"WORKER_CONFIG": {
+  "W_DockerWatcher": {
+    "main": {
+      "INTERVAL": 60,
+      "ALERT_TARGET": "general",
+      "IGNORE": ["init-container", "one-shot-task"]
+    }
+  }
+}
+```
+
 ## Resurrection
 
 The main loop tracks a list of `(thread, worker_type, instance_name)` tuples.
