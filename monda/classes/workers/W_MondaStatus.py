@@ -7,6 +7,7 @@ import time
 from importlib.metadata import version, PackageNotFoundError
 
 from monda.classes.base.Worker import Worker
+from monda.utils.fmt import format_status_text
 from monda.utils.logger import get_logger
 from monda.utils import status as _status_mod
 
@@ -77,6 +78,17 @@ class W_MondaStatus(Worker):
         self._update_status(f"HTTP on port {port}.")
         return True
 
+    def _write_motd(self) -> None:
+        if not self.config.get("EDIT_MOTD", False):
+            return
+        motd_path: str = self.config.get("MOTD_FILE", "/etc/motd")
+        text = format_status_text(self._build_status())
+        try:
+            with open(motd_path, "w", encoding="utf-8") as f:
+                f.write(text)
+        except OSError as e:
+            logger.warning(f"Could not write MOTD to {motd_path}: {e}")
+
     def _work(self) -> None:
         if not self._server_thread.is_alive():
             logger.warning("Status HTTP thread died, restarting.")
@@ -86,3 +98,4 @@ class W_MondaStatus(Worker):
                 name="W:Status_http",
             )
             self._server_thread.start()
+        self._write_motd()
