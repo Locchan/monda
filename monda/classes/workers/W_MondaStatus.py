@@ -4,6 +4,7 @@ import logging
 import socketserver
 import threading
 import time
+from datetime import datetime
 from importlib.metadata import version, PackageNotFoundError
 
 from monda.classes.base.Worker import Worker
@@ -63,6 +64,14 @@ class W_MondaStatus(Worker):
     def _initialize(self) -> bool:
         port: int = self.config["PORT"]
         self._start_time: float = time.monotonic()
+        self._motd_prefix: str = ""
+        if self.config.get("EDIT_MOTD", False):
+            motd_path: str = self.config.get("MOTD_FILE", "/etc/motd")
+            try:
+                with open(motd_path, "r", encoding="utf-8") as f:
+                    self._motd_prefix = f.read()
+            except OSError:
+                pass
         try:
             self._server = _ReuseTCPServer(("", port), _make_handler(self._build_status))
         except OSError as e:
@@ -82,10 +91,11 @@ class W_MondaStatus(Worker):
         if not self.config.get("EDIT_MOTD", False):
             return
         motd_path: str = self.config.get("MOTD_FILE", "/etc/motd")
-        text = format_status_text(self._build_status())
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        monda_section = f"\n--- MonDa status ({now}) ---\n{format_status_text(self._build_status())}"
         try:
             with open(motd_path, "w", encoding="utf-8") as f:
-                f.write(text)
+                f.write(self._motd_prefix + monda_section)
         except OSError as e:
             logger.warning(f"Could not write MOTD to {motd_path}: {e}")
 
