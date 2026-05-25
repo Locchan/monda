@@ -40,19 +40,22 @@ from runtime config, or from both.
 
 Set `ENABLED: false` under the job class name to disable all instances:
 
-```ini
-[job.J_HikAlertSnap]
-ENABLED = false
+```json
+"JOB_CONFIG": {
+  "J_HikAlertSnap": { "ENABLED": false }
+}
 ```
 
 When disabled, `initialize()` returns `True` (so callers don't log errors)
 but `run()` silently returns `None` — no thread is spawned. `ENABLED`
 defaults to `true` when omitted. This is handled entirely in the base class.
 
-```ini
-[job.J_HikAlertSnap.front_cam]
-HIK_DEVICE = cam_front
-CHANNEL = 101
+```json
+"JOB_CONFIG": {
+  "J_HikAlertSnap": {
+    "front_cam": { "HIK_DEVICE": "cam_front", "CHANNEL": 101 }
+  }
+}
 ```
 
 ```python
@@ -155,7 +158,8 @@ Snapshot endpoint: `<proto>://<address>:<port>/ISAPI/Streaming/channels/<CHANNEL
 with HTTP Digest auth from the device's credentials.
 
 The snapshot is saved as a temporary `.jpg`, then handed to `send_alert`
-which moves it into `LED.BASEDIR` and writes the LED-format JSON descriptor.
+with `target="dacha_alerts"`, which moves it into that target's `BASEDIR`
+and writes the LED-format JSON descriptor.
 
 ### Rate limiting
 

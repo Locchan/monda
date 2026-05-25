@@ -100,21 +100,18 @@ Construction logs the new event at `DEBUG` via `__repr__`.
 
 ## `W_HikConsumer`
 
-Drains the Redis `hik_events` LIST. Each `_work` tick:
+Each `_work` tick, the consumer drains up to `BATCH_SIZE` events (default
+`500`) and hands each to `process_event`.
 
-1. Issues one `LPOP hik_events BATCH_SIZE` (Redis 6.2+). The whole batch
-   comes back in a single round-trip as a `list[str]`. `BATCH_SIZE` is a
-   class constant (default `500`) — raise it for higher per-tick throughput.
-2. Deserialises each JSON payload into a `HikEvent`. **Once popped, events
-   are gone from Redis** — there is no requeue path. Pulling from the topic
-   is the consumption.
-3. Hands each to `process_event(event)`. The method's job is to act on the
-   event; it has no return value and no failure mode that can put the event
-   back. If you need at-least-once semantics with retries, do them inside
-   `process_event` (or push to a downstream queue).
-4. If Redis raises during `LPOP`, the tick is logged and skipped; the next
-   `INTERVAL` retries. Malformed JSON in the topic is dropped with an error
-   log.
+**When `USE_REDIS = false` (default):** reads directly from the in-process
+`HikEvents` deque via `popleft`. Fast path — no network.
+
+**When `USE_REDIS = true`:** issues one `LPOP hik_events BATCH_SIZE`
+(Redis 6.2+). The whole batch comes back in a single round-trip as a
+`list[str]`. **Once popped, events are gone from Redis** — there is no
+requeue path. If Redis raises during `LPOP`, the tick is logged and skipped;
+the next `INTERVAL` retries. Malformed JSON in the topic is dropped with an
+error log.
 
 Throughput tuning: per-tick capacity is `BATCH_SIZE` events; sustained rate
 is `BATCH_SIZE / INTERVAL` events/sec. The default 500 + 1s gives 500 ev/s

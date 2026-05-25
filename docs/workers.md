@@ -71,12 +71,14 @@ construct  →  initialize()  →  run()  →  _run() loop  →  (death)  →  r
    }
    ```
 
-3. Add an instance to `config.ini`:
+3. Add an instance to `config.json`:
 
-   ```ini
-   [worker.W_MyThing.my_instance]
-   FOO = bar
-   INTERVAL = 30
+   ```json
+   "WORKER_CONFIG": {
+     "W_MyThing": {
+       "my_instance": { "FOO": "bar", "INTERVAL": 30 }
+     }
+   }
    ```
 
 ## W_Cron
@@ -92,15 +94,22 @@ concurrent even though the scheduling check is sequential.
 
 ### Config
 
-```ini
-[worker.W_Cron.main]
-INTERVAL = 5
-
-[worker.W_Cron.main.JOBS.<job_instance_name>]
-SCHEDULE = * * * * *   ; standard 5-field crontab expression
-JOB_CLASS = J_SomeJob  ; must be registered in ENABLED_JOBS
-SILENT = false          ; optional; suppress routine INFO logs (default false)
-PARAMS.KEY = value      ; optional; dotted keys create the PARAMS sub-dict
+```json
+"WORKER_CONFIG": {
+  "W_Cron": {
+    "main": {
+      "INTERVAL": 5,
+      "JOBS": {
+        "<job_instance_name>": {
+          "SCHEDULE": "* * * * *",
+          "JOB_CLASS": "J_SomeJob",
+          "SILENT": false,
+          "PARAMS": { "KEY": "value" }
+        }
+      }
+    }
+  }
+}
 ```
 
 `SCHEDULE` uses standard five-field crontab syntax (`min hour dom month dow`).
@@ -124,7 +133,7 @@ To add a new job class to the scheduler, register it in
 ## W_TelegramBot
 
 Polls for Telegram messages and dispatches bot commands. Requires the
-`TELEGRAM` section in `config.yaml` (see [config.md](config.md)).
+`TELEGRAM` section in `config.json` (see [config.md](config.md)).
 
 ### Commands
 
@@ -138,11 +147,12 @@ Messages not starting with `/` are silently ignored.
 
 ### Config
 
-```yaml
-WORKER_CONFIG:
-  W_TelegramBot:
-    main:
-      INTERVAL: 2
+```json
+"WORKER_CONFIG": {
+  "W_TelegramBot": {
+    "main": { "INTERVAL": 2 }
+  }
+}
 ```
 
 ## Resurrection

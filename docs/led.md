@@ -8,13 +8,14 @@ A thin, optional outbox helper that hands monitoring alerts to the external
 ```python
 from monda.utils.led_alert import send_alert
 
-send_alert("Camera 3 disconnected", files=["/tmp/cam3_snapshot.png"])
+send_alert("Camera 3 disconnected", target="general", files=["/tmp/cam3_snapshot.png"])
 ```
 
 - `message` (str): the alert text.
+- `target` (str, optional): key under `LED_TARGETS` in config (default `"general"`).
 - `files` (list[str], optional): absolute paths to files that should travel
-  with the alert. They will be **moved** (not copied) into `LED.BASEDIR` and
-  referenced by name from the JSON.
+  with the alert. They will be **moved** (not copied) into the target's `BASEDIR`
+  and referenced by name from the JSON.
 
 The helper is fire-and-forget — no return value, no exceptions on the happy
 path. Missing attachment paths are warned about and skipped; the alert is
@@ -22,8 +23,8 @@ still written.
 
 ## On-disk format
 
-When `LED.BASEDIR` is configured, every call produces one JSON file in that
-directory:
+When a target's `BASEDIR` is configured, every call produces one JSON file in
+that directory:
 
 ```
 <BASEDIR>/alert_<YYYYMMDD_HHMMSS>_<8-hex-rand>.json
@@ -53,20 +54,22 @@ referenced by a visible JSON is guaranteed to exist.
 
 ## Fallback when not configured
 
-If `LED.BASEDIR` is absent or empty:
+If the named target is absent from `LED_TARGETS` or its `BASEDIR` is not set:
 
 - The message is printed to **stderr** as `Alert: <message>`.
 - Any attached files are **deleted** (not retained) so callers that produce
   temporary files for an alert don't leak them when the integration is off.
 
 This means callers can use `send_alert` unconditionally without checking
-config — turning the integration on or off is purely a config change.
+config — turning a target on or off is purely a config change.
 
 ## Configuration
 
-See [config.md](config.md#led-optional). Minimal:
+See [config.md](config.md#led_targets-optional). Example:
 
-```ini
-[led]
-BASEDIR = /var/lib/led/inbox
+```json
+"LED_TARGETS": {
+  "general":      { "BASEDIR": "/var/lib/led/general" },
+  "dacha_alerts": { "BASEDIR": "/var/lib/led/dacha" }
+}
 ```
