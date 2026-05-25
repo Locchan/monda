@@ -20,6 +20,10 @@ except PackageNotFoundError:
     _VERSION = "unknown"
 
 
+_MOTD_BEGIN = "--- MonDa status"
+_MOTD_END = "--- MonDa v"
+
+
 def _make_handler(status_fn):
     class _Handler(http.server.BaseHTTPRequestHandler):
         def do_GET(self) -> None:
@@ -64,14 +68,6 @@ class W_MondaStatus(Worker):
     def _initialize(self) -> bool:
         port: int = self.config["PORT"]
         self._start_time: float = time.monotonic()
-        self._motd_prefix: str = ""
-        if self.config.get("EDIT_MOTD", False):
-            motd_path: str = self.config.get("MOTD_FILE", "/etc/motd")
-            try:
-                with open(motd_path, "r", encoding="utf-8") as f:
-                    self._motd_prefix = f.read()
-            except OSError:
-                pass
         try:
             self._server = _ReuseTCPServer(("", port), _make_handler(self._build_status))
         except OSError as e:
@@ -92,10 +88,28 @@ class W_MondaStatus(Worker):
             return
         motd_path: str = self.config.get("MOTD_FILE", "/etc/motd")
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        monda_section = f"\n--- MonDa status ({now}) ---\n{format_status_text(self._build_status())}"
+        block = (
+            f"--- MonDa status ({now}) ---\n"
+            f"{format_status_text(self._build_status())}"
+            f"--- MonDa v{_VERSION} ---\n"
+        )
         try:
+            try:
+                with open(motd_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+            except FileNotFoundError:
+                content = ""
+            start = content.find(_MOTD_BEGIN)
+            end = content.find(_MOTD_END, max(0, start))
+            if start != -1 and end != -1:
+                after = content.find("\n", end)
+                after = len(content) if after == -1 else after + 1
+                new_content = content[:start] + block + content[after:]
+            else:
+                sep = "\n\n" if content.strip() else ""
+                new_content = content.rstrip("\n") + sep + block
             with open(motd_path, "w", encoding="utf-8") as f:
-                f.write(self._motd_prefix + monda_section)
+                f.write(new_content)
         except OSError as e:
             logger.warning(f"Could not write MOTD to {motd_path}: {e}")
 
