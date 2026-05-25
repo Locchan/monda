@@ -4,6 +4,7 @@ import os
 import re
 import subprocess
 import tempfile
+from datetime import datetime
 from typing import Callable
 
 from monda.classes.base.Worker import Worker
@@ -33,7 +34,11 @@ def _decode_acct(m: re.Match) -> str:
         return m.group(2)
 
 
-def _parse_audit_line(line: str) -> tuple[str, str] | None:
+def _now() -> str:
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _parse_audit_line(line: str) -> tuple[str, str, str] | None:
     if "type=USER_LOGIN" not in line or "res=success" not in line or "sshd" not in line:
         return None
     acct_m = _AUDIT_ACCT_RE.search(line)
@@ -41,17 +46,26 @@ def _parse_audit_line(line: str) -> tuple[str, str] | None:
     return (
         _decode_acct(acct_m) if acct_m else "?",
         addr_m.group(1) if addr_m else "?",
+        _now(),
     )
 
 
-def _parse_syslog_line(line: str) -> tuple[str, str] | None:
+def _parse_syslog_line(line: str) -> tuple[str, str, str] | None:
     m = _SYSLOG_SSH_RE.search(line)
-    return (m.group(1), m.group(2)) if m else None
+    return (m.group(1), m.group(2), _now()) if m else None
 
 
-def _parse_jctl_event(event: dict) -> tuple[str, str] | None:
+def _parse_jctl_event(event: dict) -> tuple[str, str, str] | None:
     m = _JCTL_ACCEPTED_RE.search(event.get("MESSAGE", ""))
-    return (m.group(1), m.group(2)) if m else None
+    if not m:
+        return None
+    ts_us = event.get("__REALTIME_TIMESTAMP")
+    try:
+        ts = datetime.fromtimestamp(int(ts_us) / 1_000_000)
+        timestamp = ts.strftime("%Y-%m-%d %H:%M:%S")
+    except (TypeError, ValueError, OSError):
+        timestamp = _now()
+    return (m.group(1), m.group(2), timestamp)
 
 
 # docs/workers.md
@@ -76,7 +90,7 @@ class W_SSHLoginWatcher(Worker):
         if log_path:
             self._mode = "file"
             self._log_path: str = log_path
-            self._parser: Callable[[str], tuple[str, str] | None] = (
+            self._parser: Callable[[str], tuple[str, str, str] | None] = (
                 _parse_audit_line if "audit" in log_path else _parse_syslog_line
             )
             self._pos: int = 0
@@ -108,7 +122,7 @@ class W_SSHLoginWatcher(Worker):
         self._update_status("Watching journalctl. No logins detected.")
         return True
 
-    def _read_file_events(self) -> list[tuple[str, str]]:
+    def _read_file_events(self) -> list[tuple[str, str, str]]:
         try:
             st = os.stat(self._log_path)
         except OSError as e:
@@ -131,7 +145,7 @@ class W_SSHLoginWatcher(Worker):
             return []
         return [r for line in chunk.splitlines() if (r := self._parser(line))]
 
-    def _read_jctl_events(self) -> list[tuple[str, str]]:
+    def _read_jctl_events(self) -> list[tuple[str, str, str]]:
         result = subprocess.run(
             ["journalctl", "-u", "ssh", "-u", "sshd",
              "--output=json", "--no-pager",
@@ -154,6 +168,6 @@ class W_SSHLoginWatcher(Worker):
 
     def _work(self) -> None:
         events = self._read_file_events() if self._mode == "file" else self._read_jctl_events()
-        for user, addr in events:
+        for user, addr, ts in events:
             send_alert(f"SSH login: user '{user}' from {addr}.", target=self._alert_target)
-            self._update_status(f"Last SSH login: '{user}' from {addr}.")
+            self._update_status(f"Last SSH login: '{user}' from {addr} at {ts}.")
