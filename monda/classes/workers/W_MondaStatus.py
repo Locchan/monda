@@ -20,8 +20,7 @@ except PackageNotFoundError:
     _VERSION = "unknown"
 
 
-_MOTD_BEGIN = "--- MonDa status"
-_MOTD_END = "--- MonDa v"
+_MOTD_MARKER = "--- MonDa status"
 
 
 def _make_handler(status_fn):
@@ -88,28 +87,17 @@ class W_MondaStatus(Worker):
             return
         motd_path: str = self.config.get("MOTD_FILE", "/etc/motd")
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        block = (
-            f"--- MonDa status ({now}) ---\n"
-            f"{format_status_text(self._build_status())}"
-            f"--- MonDa v{_VERSION} ---\n"
-        )
+        block = f"--- MonDa status ({now}) ---\n{format_status_text(self._build_status())}\n"
         try:
             try:
                 with open(motd_path, "r", encoding="utf-8") as f:
                     content = f.read()
             except FileNotFoundError:
                 content = ""
-            start = content.find(_MOTD_BEGIN)
-            end = content.find(_MOTD_END, max(0, start))
-            if start != -1 and end != -1:
-                after = content.find("\n", end)
-                after = len(content) if after == -1 else after + 1
-                new_content = content[:start] + block + content[after:]
-            else:
-                sep = "\n\n" if content.strip() else ""
-                new_content = content.rstrip("\n") + sep + block
+            idx = content.find(_MOTD_MARKER)
+            prefix = content[:idx].rstrip("\n") + "\n\n" if idx != -1 else content.rstrip("\n") + ("\n\n" if content.strip() else "")
             with open(motd_path, "w", encoding="utf-8") as f:
-                f.write(new_content)
+                f.write(prefix + block)
         except OSError as e:
             logger.warning(f"Could not write MOTD to {motd_path}: {e}")
 
