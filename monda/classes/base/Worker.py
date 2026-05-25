@@ -3,6 +3,7 @@ import os
 import time
 from threading import Thread
 
+from monda.config_schema import WORKER_SCHEMAS, validate
 from monda.utils.led_alert import send_alert
 from monda.utils.logger import get_logger
 from monda.utils.misc import read_config
@@ -59,11 +60,16 @@ class Worker:
             entry.crashed_at = time.time()
             entry.crash_error = "No config."
             return False
-        missing_entries = [k for k in self.required_config_entries if k not in instance_config]
-        if missing_entries:
-            logger.error(f"Could not initialize: missing the following config entries: {missing_entries}")
+        schema = WORKER_SCHEMAS.get(self.worker_class_name)
+        if schema:
+            errors = validate(instance_config, schema.fields)
+        else:
+            errors = [f"'{k}' is required" for k in self.required_config_entries if k not in instance_config]
+        if errors:
+            msg = "; ".join(errors)
+            logger.error(f"Config validation failed for {self.worker_class_name}/{self._instance_name}: {msg}")
             entry.crashed_at = time.time()
-            entry.crash_error = f"Missing config: {missing_entries}"
+            entry.crash_error = f"Config error: {msg}"
             return False
         self.config = instance_config
         self.initialized = bool(self._initialize())

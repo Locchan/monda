@@ -73,7 +73,6 @@ class W_SSHLoginWatcher(Worker):
 
     worker_class_name = "W_SSHLoginWatcher"
     worker_class_name_short = "W:SSHLogin"
-    required_config_entries = []
 
     def _initialize(self) -> bool:
         self._alert_target: str = self.config.get("ALERT_TARGET", "general")

@@ -3,6 +3,7 @@ import os
 import time
 from threading import Thread
 
+from monda.config_schema import JOB_SCHEMAS, validate
 from monda.utils.led_alert import send_alert
 from monda.utils.logger import get_logger
 from monda.utils.misc import read_config
@@ -79,9 +80,14 @@ class Job:
         if self.__class__ in self.disabled_jobs:
             return True
 
-        missing_entries = [k for k in self.required_config_entries if k not in self.config]
-        if missing_entries:
-            logger.error(f"Could not initialize: missing the following config entries: {missing_entries}")
+        schema = JOB_SCHEMAS.get(self.job_class_name)
+        if schema:
+            errors = validate(self.config, schema.fields)
+        else:
+            errors = [f"'{k}' is required" for k in self.required_config_entries if k not in self.config]
+        if errors:
+            msg = "; ".join(errors)
+            logger.error(f"Config validation failed for {self.job_class_name}/{self._instance_name}: {msg}")
             return False
         self.initialized = bool(self._initialize())
         return self.initialized

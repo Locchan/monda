@@ -14,7 +14,6 @@ class W_SystemdWatcher(Worker):
 
     worker_class_name = "W_SystemdWatcher"
     worker_class_name_short = "W:Systemd"
-    required_config_entries = []
 
     def _initialize(self) -> bool:
         self._last_alert: dict[str, float] = {}

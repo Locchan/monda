@@ -21,7 +21,6 @@ class W_HikConsumer(Worker):
     worker_class_name = "W_HikConsumer"
     worker_class_name_short = "W:HikCons"
 
-    required_config_entries = []
 
     BATCH_SIZE: int = 500
 

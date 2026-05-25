@@ -26,11 +26,10 @@ construct  →  initialize()  →  run()  →  _run() loop  →  (death)  →  r
 
 ## Required class attributes
 
-| Attribute                  | Notes                                                     |
-|----------------------------|-----------------------------------------------------------|
-| `worker_class_name`        | Must equal the class name and must start with `W_`. Used as the key under `WORKER_CONFIG`. |
-| `worker_class_name_short`  | Short tag prepended to the instance name to form `self.name` (e.g. `W:Cron_main`). No `-`. |
-| `required_config_entries`  | List of keys that must be present in the instance config. |
+| Attribute                 | Notes                                                     |
+|---------------------------|-----------------------------------------------------------|
+| `worker_class_name`       | Must equal the class name and must start with `W_`. Used as the key under `WORKER_CONFIG`. |
+| `worker_class_name_short` | Short tag prepended to the instance name to form `self.name` (e.g. `W:Cron_main`). No `-`. |
 
 ## Hooks to override
 
@@ -49,10 +48,10 @@ construct  →  initialize()  →  run()  →  _run() loop  →  (death)  →  r
    class W_MyThing(Worker):
        worker_class_name = "W_MyThing"
        worker_class_name_short = "W:MyThing"
-       required_config_entries = ["FOO"]
 
        def _initialize(self):
            self.foo = self.config["FOO"]
+           self._update_status("Running.")
            return True
 
        def _work(self):
@@ -66,12 +65,31 @@ construct  →  initialize()  →  run()  →  _run() loop  →  (death)  →  r
    from monda.classes.workers.W_MyThing import W_MyThing
 
    ENABLED_WORKERS = {
-       "W_HikProducer": W_HikProducer,
+       ...,
        "W_MyThing": W_MyThing,
    }
    ```
 
-3. Add an instance to `config.json`:
+3. Add a schema entry in `monda/config_schema.py` under `WORKER_SCHEMAS`:
+
+   ```python
+   "W_MyThing": WorkerSchema(
+       "One-line description of what this worker does",
+       [
+           Field("INTERVAL", "Poll interval (seconds)", "int", 30),
+           Field("FOO",      "Some required value",     "str"),
+           Field("BAR",      "Optional override",       "str", optional=True),
+       ],
+   ),
+   ```
+
+   The schema drives both config validation in `Worker.initialize()` and the
+   interactive `monda configure` wizard. Field types: `str`, `int`, `bool`,
+   `list_str`, `list_int`, `json`, `named_list` (sub-dict with its own fields).
+   Fields with `default=UNSET` and `optional=False` are required; the base class
+   rejects the instance if they are missing or have the wrong type.
+
+4. Add an instance to `config.json` (or via `monda configure`):
 
    ```json
    "WORKER_CONFIG": {
@@ -158,66 +176,37 @@ Messages not starting with `/` are silently ignored.
 ## W_MondaStatus
 
 Starts a minimal HTTP server that responds to `GET /status` with a JSON
-object describing the daemon's internal state. All other paths return 404.
+snapshot of every worker and job's current state. All other paths return 404.
 
 The server runs in its own daemon thread started in `_initialize`. The
-worker's `_work` tick only checks whether that thread is alive and restarts
-it if not. `INTERVAL` controls how often the health check runs, not the
-request rate.
-
-### `monda status` command
-
-```
-monda status
-```
-
-Reads the config, looks up the first `W_MondaStatus` instance's `PORT`,
-sends `GET /status`, and prints a human-readable summary:
-
-```
-status:  ok
-version: 1.1.31+m
-uptime:  0h 5m 12s
-```
-
-### Single-instance enforcement
-
-MonDa writes its PID to a file on startup (`/tmp/monda.pid` by default, or
-the `PID_FILE` top-level config key). If the file exists and the recorded
-process is still alive, the new instance exits immediately with an error.
-The PID file is removed on clean shutdown (SIGTERM / SIGINT) and on normal
-Python exit via `atexit`.
+worker's `_work` tick checks that the thread is still alive (restarting it if
+not) and optionally rewrites `/etc/motd`. `INTERVAL` controls how often this
+health check runs, not the request rate.
 
 ### Config
 
-| Key        | Type | Required | Default | Purpose                             |
-|------------|------|----------|---------|-------------------------------------|
-| `PORT`     | int  | yes      | —       | TCP port for the HTTP status server.|
-| `INTERVAL` | int  | no       | `10`    | Seconds between server health checks.|
-
-Top-level config key (not under `WORKER_CONFIG`):
-
-| Key        | Type   | Required | Default          | Purpose             |
-|------------|--------|----------|------------------|---------------------|
-| `PID_FILE` | string | no       | `/tmp/monda.pid` | Path to the PID file.|
+| Key        | Type   | Required | Default      | Purpose                                      |
+|------------|--------|----------|--------------|----------------------------------------------|
+| `PORT`     | int    | yes      | —            | TCP port for the HTTP status server.         |
+| `INTERVAL` | int    | no       | `30`         | Seconds between server health checks.        |
+| `EDIT_MOTD`| bool   | no       | `false`      | Rewrite MOTD file on every tick.             |
+| `MOTD_FILE`| string | no       | `/etc/motd`  | Path to the MOTD file (requires `EDIT_MOTD`).|
 
 ```json
 "WORKER_CONFIG": {
   "W_MondaStatus": {
-    "main": { "PORT": 7342, "INTERVAL": 30 }
+    "main": { "PORT": 7342, "INTERVAL": 30, "EDIT_MOTD": true }
   }
 }
 ```
 
-### Response format (stub)
+### MOTD integration
 
-```json
-{
-  "status": "ok",
-  "version": "1.1.31+m",
-  "uptime_seconds": 312.4
-}
-```
+When `EDIT_MOTD` is `true` the worker appends a status block to the MOTD
+file on each tick. The block is bounded by a start marker (`--- MonDa status
+(YYYY-MM-DD HH:MM:SS) ---`) so subsequent writes replace only the MonDa
+section; any content already in the file above the marker is preserved. The
+marker line doubles as the section header visible to users logging in.
 
 ## W_BackupWatcherRaw
 
@@ -405,10 +394,18 @@ as it leaves the failed state, so a subsequent failure alerts immediately.
 
 ## W_DockerWatcher
 
-Queries `docker ps -a` on every tick and fires a `send_alert` for each
-container whose state is `exited` or `dead`. Alerts are deduplicated per
-container name: at most one alert per 24 hours. The cooldown for a container
-is cleared as soon as it leaves an alerting state.
+Queries `docker ps -a` and `docker inspect` on every tick. Three failure
+modes are detected:
+
+- **`exited` / `dead`** — container stopped or killed.
+- **`restarting`** — Docker's restart policy is actively cycling the container
+  right now.
+- **RestartCount increase** — container crashed and came back up on its own;
+  caught even when the final state is `running`.
+
+Alerts are deduplicated per signal: at most one alert per 24 hours for a
+given container/signal pair. The cooldown resets when the container
+disappears from the list.
 
 `docker` is invoked as a subprocess and must be available on `PATH`. The
 process user must have permission to query the Docker daemon.

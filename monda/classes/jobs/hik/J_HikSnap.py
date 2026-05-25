@@ -17,7 +17,6 @@ class J_HikSnap(Job):
 
     job_class_name = "J_HikSnap"
     job_class_name_short = "J:HkSnap"
-    required_config_entries = ["HIK_DEVICE", "DEST_DIR"]
 
     def _initialize(self) -> bool:
         config = read_config()

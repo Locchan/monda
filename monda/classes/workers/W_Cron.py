@@ -17,7 +17,6 @@ class W_Cron(Worker):
     worker_class_name = "W_Cron"
     worker_class_name_short = "W:Cron"
 
-    required_config_entries = ["JOBS"]
 
     def __init__(self, name: str, interval_s: int) -> None:
         super().__init__(name, interval_s)

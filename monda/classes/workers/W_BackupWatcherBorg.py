@@ -17,7 +17,6 @@ class W_BackupWatcherBorg(Worker):
 
     worker_class_name = "W_BackupWatcherBorg"
     worker_class_name_short = "W:BkpBorg"
-    required_config_entries = ["BACKUPS"]
 
     def _initialize(self) -> bool:
         backups = self.config.get("BACKUPS", {})

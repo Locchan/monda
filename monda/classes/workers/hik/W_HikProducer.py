@@ -23,7 +23,6 @@ class W_HikProducer(Worker):
     worker_class_name = "W_HikProducer"
     worker_class_name_short = "W:HikProd"
 
-    required_config_entries = ["DEVICE"]
 
     def _resolve_device(self) -> tuple[HTTPDigestAuth, str, str]:
         config = read_config()

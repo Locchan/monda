@@ -18,7 +18,6 @@ class J_HikSnapArch(Job):
 
     job_class_name = "J_HikSnapArch"
     job_class_name_short = "J:HkArch"
-    required_config_entries = ["SRC_DIR", "DEST_DIR"]
 
     def _initialize(self) -> bool:
         return True

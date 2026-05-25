@@ -19,7 +19,6 @@ class J_HikAlertSnap(Job):
 
     job_class_name = "J_HikAlertSnap"
     job_class_name_short = "J:HikSnap"
-    required_config_entries = ["HIK_DEVICE", "MESSAGE"]
 
     _last_snap: dict[str, float] = {}
 

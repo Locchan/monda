@@ -14,7 +14,6 @@ class W_BackupWatcherRaw(Worker):
 
     worker_class_name = "W_BackupWatcherRaw"
     worker_class_name_short = "W:BkpRaw"
-    required_config_entries = ["BACKUPS"]
 
     def _initialize(self) -> bool:
         backups = self.config.get("BACKUPS", {})

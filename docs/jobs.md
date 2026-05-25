@@ -65,11 +65,10 @@ job = J_HikAlertSnap("front_cam", {"MESSAGE": "Motion detected!"})
 
 ## Required class attributes
 
-| Attribute                  | Notes                                                   |
-|----------------------------|---------------------------------------------------------|
-| `job_class_name`           | Must equal the class name and must start with `J_`.     |
-| `job_class_name_short`     | Short tag prepended to the instance name to form `self.name` (e.g. `J:Purge_nightly`). No `-`. |
-| `required_config_entries`  | List of keys that must be present in the merged config. |
+| Attribute              | Notes                                                   |
+|------------------------|---------------------------------------------------------|
+| `job_class_name`       | Must equal the class name and must start with `J_`.     |
+| `job_class_name_short` | Short tag prepended to the instance name to form `self.name` (e.g. `J:Purge_nightly`). No `-`. |
 
 ## Hooks to override
 
@@ -110,35 +109,55 @@ routine status messages so they respect the flag automatically.
   `run()` returns `None` in this case.
 - `Could not create job thread for '<name>': <exception>` — at ERROR on the
   caller's thread if `Thread.start()` itself failed. `run()` returns `None`.
-- `Could not initialize: missing the following config entries: [...]` — at
-  ERROR if `initialize()` finds missing required fields.
+- `Config validation failed for <class>/<instance>: ...` — at ERROR if
+  `initialize()` finds a missing required field or a type mismatch.
 
 ## Writing a new job
 
-```python
-from monda.classes.base.Job import Job
+1. Create the class:
 
-class J_PurgeOldEvents(Job):
-    job_class_name = "J_PurgeOldEvents"
-    job_class_name_short = "J:Purge"
-    required_config_entries = ["OLDER_THAN_DAYS"]
+   ```python
+   from monda.classes.base.Job import Job
 
-    def _initialize(self):
-        self.cutoff_days = int(self.config["OLDER_THAN_DAYS"])
-        return True
+   class J_PurgeOldEvents(Job):
+       job_class_name = "J_PurgeOldEvents"
+       job_class_name_short = "J:Purge"
 
-    def _work(self):
-        # do the actual purge; raise on failure
-        ...
-```
+       def _initialize(self):
+           self.cutoff_days = int(self.config["OLDER_THAN_DAYS"])
+           return True
 
-Run it (fire-and-forget):
+       def _work(self):
+           # do the actual purge; raise on failure
+           ...
+   ```
 
-```python
-job = J_PurgeOldEvents("nightly", {"OLDER_THAN_DAYS": 30})
-if job.initialize():
-    job.run()  # returns Thread, caller doesn't block
-```
+2. Register it in `monda/classes/jobs/__init__.py` under `ENABLED_JOBS` (required
+   for `W_Cron` to schedule it by name).
+
+3. Add a schema entry in `monda/config_schema.py` under `JOB_SCHEMAS`:
+
+   ```python
+   "J_PurgeOldEvents": JobSchema(
+       "Delete events older than a configurable threshold",
+       [
+           Field("OLDER_THAN_DAYS", "Purge events older than N days", "int"),
+       ],
+   ),
+   ```
+
+   The schema drives validation in `Job.initialize()` and populates the
+   `monda configure` wizard. Fields with `default=UNSET` and `optional=False`
+   are required; the base class rejects the job if they are missing or the
+   wrong type.
+
+4. Run it (fire-and-forget):
+
+   ```python
+   job = J_PurgeOldEvents("nightly", {"OLDER_THAN_DAYS": 30})
+   if job.initialize():
+       job.run()  # returns Thread, caller doesn't block
+   ```
 
 If the caller needs to know when the job finishes (rare — Jobs are designed
 for fire-and-forget), keep the returned Thread and `join()` it later. The

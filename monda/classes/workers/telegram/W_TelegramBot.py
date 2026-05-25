@@ -51,7 +51,6 @@ class W_TelegramBot(Worker):
     worker_class_name = "W_TelegramBot"
     worker_class_name_short = "W:Telegram"
 
-    required_config_entries = []
 
     def __init__(self, name: str, interval_s: int):
         super().__init__(name, interval_s)

@@ -10,6 +10,7 @@ import urllib.error
 
 from monda.classes.workers.W_ConfigWatch import W_ConfigWatch
 from monda.classes.workers.worker_utils import validate_worker_config, start_worker_by_name, start_all_workers
+from monda.configure import run_configure
 from monda.utils.fmt import format_status_text
 from monda.utils.logger import get_logger, setdebug, setup_file_logging
 from monda.utils.misc import splash, read_config, signal_stop, acquire_pid_file
@@ -52,8 +53,11 @@ def main() -> None:
         if sys.argv[1] == "status":
             _cmd_status()
             return
+        if sys.argv[1] == "configure":
+            run_configure(sys.argv[2] if len(sys.argv) > 2 else None)
+            return
         print(f"Unknown command: {sys.argv[1]}")
-        print("Usage: monda [status]")
+        print("Usage: monda [status|configure [config_path]]")
         sys.exit(1)
 
     signal.signal(signal.SIGTERM, signal_stop)

@@ -52,7 +52,6 @@ class W_MondaStatus(Worker):
 
     worker_class_name = "W_MondaStatus"
     worker_class_name_short = "W:Status"
-    required_config_entries = ["PORT"]
 
     def _build_status(self) -> dict:
         snap = _status_mod.snapshot()

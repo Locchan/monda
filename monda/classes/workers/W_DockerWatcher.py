@@ -15,7 +15,6 @@ class W_DockerWatcher(Worker):
 
     worker_class_name = "W_DockerWatcher"
     worker_class_name_short = "W:Docker"
-    required_config_entries = []
 
     _alert_states: frozenset[str] = frozenset({"exited", "dead", "restarting"})
 

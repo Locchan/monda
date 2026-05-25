@@ -18,6 +18,91 @@ compares the file's mtime and re-reads only if it changed. No restart required.
 (`.tmp` + `os.replace`) back to the same file. `set_config_entry` and
 `append_config_entry` read → patch → write the same file.
 
+## CLI commands
+
+### `monda`
+
+Start the daemon. Reads config, acquires the PID file, starts all configured
+workers, and enters the resurrection loop.
+
+```
+monda
+```
+
+Exits immediately with an error if another instance is already running (PID
+file check). Responds to `SIGTERM` and `SIGINT` by releasing the PID file and
+exiting cleanly.
+
+### `monda status`
+
+```
+monda status
+```
+
+Reads the config, connects to the first `W_MondaStatus` instance's `PORT`,
+fetches `GET /status`, and prints a human-readable summary with health
+indicators:
+
+```
+🟢  monda v1.2.0 | uptime: 2h 3m 5s
+
+Workers:
+  🟢  W:Status_main               HTTP on port 7342.
+  🟡  W:Docker_main               All containers healthy. [Restarted 3h ago, 1x]
+  🔴  W:Systemd_main              Failed: myservice.service. [Crashed 5m ago: ...]
+
+Jobs:
+  🟢  J_HikAlertSnap/front_cam    Last run: success, took 2s. | Next: in 5m
+  🔴  J_HikSnap/archive           Failed after 1s: connection refused. | Next: in 3m
+```
+
+Color semantics:
+- 🟢 green — everything OK.
+- 🟡 yellow — OK but the worker restarted within the last 24 h, or a
+  monitored resource is in a warning state (overdue backup, failed service,
+  unhealthy container).
+- 🔴 red — the worker crashed, or the last job run failed.
+
+The overall indicator on the header line reflects the worst color across all
+workers and jobs.
+
+Requires `W_MondaStatus` to be running. Exits with code 1 if the endpoint
+is unreachable.
+
+### `monda configure [config_path]`
+
+```
+monda configure
+monda configure /etc/monda/config.json
+```
+
+Interactive wizard for creating or editing a config file. Loads the existing
+file if it exists, presents a top-level menu, and saves on exit.
+
+Menu sections:
+
+| Section       | What it configures                                      |
+|---------------|---------------------------------------------------------|
+| General       | Top-level fields (`NAME`, `DEBUG`, `TZ`, `PID_FILE`, …) |
+| LED Targets   | `LED_TARGETS` named outbox entries                      |
+| Telegram      | `TELEGRAM` bot token and chat IDs                       |
+| Hikvision     | `HIK_CONFIG` global settings, devices, and credentials  |
+| Workers       | `WORKER_CONFIG` — add/edit/delete worker instances      |
+| Jobs          | `JOB_CONFIG` — add/edit/delete job instances and toggle `ENABLED` |
+
+Prompt format:
+- `KEY [current]:` — empty input keeps the current or default value.
+- `KEY (optional):` — empty input omits the key from the config entirely.
+
+Config path is resolved the same way as the daemon: `CFG_FILE` env var →
+`./config/config.json` → `/etc/monda/config.json`. Pass an explicit path as
+the second argument to override. Changes are only written on "Save & Exit";
+`Ctrl-C` discards without saving.
+
+The wizard derives its field list, types, defaults, and descriptions from
+`monda/config_schema.py`. Adding a schema entry for a new worker or job
+makes it immediately available here.
+
 ## Top-level fields
 
 | Key             | Type   | Required | Default | Purpose                                                                  |
