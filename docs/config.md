@@ -93,15 +93,20 @@ Menu sections:
 Prompt format:
 - `KEY [current]:` — empty input keeps the current or default value.
 - `KEY (optional):` — empty input omits the key from the config entirely.
+- Fields that accept a fixed set of values (e.g. `JOB_CLASS` in `W_Cron`)
+  display a numbered list instead of a free-text prompt. Enter a number to
+  select, or type the value directly. The current selection is marked with `◀`.
 
 Config path is resolved the same way as the daemon: `CFG_FILE` env var →
 `./config/config.json` → `/etc/monda/config.json`. Pass an explicit path as
 the second argument to override. Changes are only written on "Save & Exit";
-`Ctrl-C` discards without saving.
+`Ctrl-C` discards without saving. The wizard exits with an error if the
+current user does not have write permission for the resolved config path.
 
 The wizard derives its field list, types, defaults, and descriptions from
 `monda/config_schema.py`. Adding a schema entry for a new worker or job
-makes it immediately available here.
+makes it immediately available here. Fields with a `choices` callable show a
+selection menu automatically.
 
 ## Top-level fields
 

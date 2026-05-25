@@ -64,7 +64,48 @@ def _parse(ftype: str, raw: str) -> Any:
     return raw
 
 
+def _prompt_choice(field: Field, current: Any = UNSET) -> Any:
+    options = field.choices()
+    shown = current if current is not UNSET else field.default
+
+    print(f"\n  {field.key} — {field.desc}:")
+    for i, opt in enumerate(options, 1):
+        marker = " ◀" if opt == shown else ""
+        print(f"    {i}. {opt}{marker}")
+
+    suffix = f" [{shown}]" if shown is not UNSET else ""
+    if field.optional:
+        suffix += " (optional)"
+
+    while True:
+        try:
+            raw = input(f"  Choice{suffix}: ").strip()
+        except EOFError:
+            return shown if shown is not UNSET else _OMIT
+
+        if not raw:
+            if field.optional:
+                return _OMIT
+            if shown is not UNSET:
+                return shown
+            print(f"    ✗ {field.key} is required.")
+            continue
+
+        try:
+            idx = int(raw) - 1
+            if 0 <= idx < len(options):
+                return options[idx]
+            print(f"    ✗ Enter a number from 1 to {len(options)}.")
+        except ValueError:
+            if raw in options:
+                return raw
+            print(f"    ✗ Enter a number from 1 to {len(options)}.")
+
+
 def _prompt(field: Field, current: Any = UNSET) -> Any:
+    if field.choices is not None:
+        return _prompt_choice(field, current)
+
     shown = current if current is not UNSET else field.default
 
     label = f"  {field.key}"

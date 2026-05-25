@@ -87,7 +87,9 @@ construct  →  initialize()  →  run()  →  _run() loop  →  (death)  →  r
    interactive `monda configure` wizard. Field types: `str`, `int`, `bool`,
    `list_str`, `list_int`, `json`, `named_list` (sub-dict with its own fields).
    Fields with `default=UNSET` and `optional=False` are required; the base class
-   rejects the instance if they are missing or have the wrong type.
+   rejects the instance if they are missing or have the wrong type. Pass a
+   `choices=lambda: [...]` callable to show a selection menu in the wizard
+   instead of a free-text prompt.
 
 4. Add an instance to `config.json` (or via `monda configure`):
 

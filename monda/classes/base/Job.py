@@ -31,7 +31,6 @@ class Job:
 
     job_class_name: str = "Job"
     job_class_name_short: str = "J:"
-    required_config_entries: list[str] = []
     disabled_jobs: list[type] = []
 
     def __init__(self, name: str, job_config: dict | None = None, silent: bool = False) -> None:
@@ -80,11 +79,8 @@ class Job:
         if self.__class__ in self.disabled_jobs:
             return True
 
-        schema = JOB_SCHEMAS.get(self.job_class_name)
-        if schema:
-            errors = validate(self.config, schema.fields)
-        else:
-            errors = [f"'{k}' is required" for k in self.required_config_entries if k not in self.config]
+        schema = JOB_SCHEMAS[self.job_class_name]
+        errors = validate(self.config, schema.fields)
         if errors:
             msg = "; ".join(errors)
             logger.error(f"Config validation failed for {self.job_class_name}/{self._instance_name}: {msg}")

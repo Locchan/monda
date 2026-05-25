@@ -42,3 +42,10 @@ ENABLED_WORKERS = {
     "W_HikConsumer": W_HikConsumer,
     "W_TelegramBot": W_TelegramBot,
 }
+
+from monda.config_schema import WORKER_SCHEMAS  # noqa: E402
+_missing = [k for k in ENABLED_WORKERS if k not in WORKER_SCHEMAS]
+if _missing:
+    import sys
+    print(f"FATAL: workers without schema: {', '.join(_missing)}", file=sys.stderr)
+    sys.exit(1)

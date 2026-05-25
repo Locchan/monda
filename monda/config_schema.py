@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field as dc_field
-from typing import Any
+from typing import Any, Callable
 
 UNSET = object()
 
@@ -38,7 +38,10 @@ class Field:
     default: Any = UNSET
     optional: bool = False
     sub_fields: list["Field"] = dc_field(default_factory=list)
+    choices: Callable[[], list[str]] | None = None
 
+
+_ENABLED_FIELD = Field("ENABLED", "Enable this instance", "bool", True, optional=True)
 
 # ── Global ────────────────────────────────────────────────────────────────────
 
@@ -101,7 +104,7 @@ _BACKUP_BORG_ENTRY: list[Field] = [
 
 _CRON_JOB_ENTRY: list[Field] = [
     Field("SCHEDULE",  "Cron expression (e.g. 0 * * * *)", "str"),
-    Field("JOB_CLASS", "Job class name (e.g. J_HikSnap)",  "str"),
+    Field("JOB_CLASS", "Job class name",  "str", choices=lambda: list(JOB_SCHEMAS.keys())),
     Field("SILENT",    "Suppress info logs",                "bool", False, optional=True),
     Field("PARAMS",    "Extra params passed to job (JSON)", "json",        optional=True),
 ]
@@ -122,65 +125,74 @@ WORKER_SCHEMAS: dict[str, WorkerSchema] = {
             Field("INTERVAL",  "Health check interval (seconds)",  "int", 30),
             Field("EDIT_MOTD", "Write status to MOTD file",        "bool", False, optional=True),
             Field("MOTD_FILE", "MOTD file path",                   "str", "/etc/motd", optional=True),
+            _ENABLED_FIELD,
         ],
     ),
     "W_ConfigWatch": WorkerSchema(
         "Hot-reload config.json when it changes on disk",
         [
             Field("INTERVAL", "File check interval (seconds)", "int", 5),
+            _ENABLED_FIELD,
         ],
     ),
     "W_SSHLoginWatcher": WorkerSchema(
         "Alert on SSH logins via audit log, auth.log, or journalctl",
         [
-            Field("INTERVAL",     "Poll interval (seconds)",                      "int", 10),
-            Field("ALERT_TARGET", "LED alert target name",                        "str", "general", optional=True),
-            Field("LOG_PATH",     "SSH log file (auto-detected if omitted)",      "str", optional=True),
+            Field("INTERVAL",     "Poll interval (seconds)",                 "int", 10),
+            Field("ALERT_TARGET", "LED alert target name",                   "str", "general", optional=True),
+            Field("LOG_PATH",     "SSH log file (auto-detected if omitted)", "str", optional=True),
+            _ENABLED_FIELD,
         ],
     ),
     "W_SystemdWatcher": WorkerSchema(
         "Alert when any systemd service enters the failed state",
         [
-            Field("INTERVAL",     "Poll interval (seconds)",          "int", 60),
-            Field("ALERT_TARGET", "LED alert target name",            "str", "general", optional=True),
-            Field("IGNORE",       "Services to ignore (comma-sep)",   "list_str", optional=True),
+            Field("INTERVAL",     "Poll interval (seconds)",        "int", 60),
+            Field("ALERT_TARGET", "LED alert target name",          "str", "general", optional=True),
+            Field("IGNORE",       "Services to ignore (comma-sep)", "list_str", optional=True),
+            _ENABLED_FIELD,
         ],
     ),
     "W_DockerWatcher": WorkerSchema(
         "Alert on exited, dead, restarting, or crash-looping Docker containers",
         [
-            Field("INTERVAL",     "Poll interval (seconds)",             "int", 60),
-            Field("ALERT_TARGET", "LED alert target name",               "str", "general", optional=True),
-            Field("IGNORE",       "Container names to ignore (comma-sep)", "list_str", optional=True),
+            Field("INTERVAL",     "Poll interval (seconds)",                  "int", 60),
+            Field("ALERT_TARGET", "LED alert target name",                    "str", "general", optional=True),
+            Field("IGNORE",       "Container names to ignore (comma-sep)",    "list_str", optional=True),
+            _ENABLED_FIELD,
         ],
     ),
     "W_BackupWatcherRaw": WorkerSchema(
         "Alert when filesystem backups are overdue (checks newest file mtime)",
         [
-            Field("INTERVAL",     "Poll interval (seconds)",    "int", 3600),
-            Field("ALERT_TARGET", "LED alert target name",      "str", "general", optional=True),
-            Field("BACKUPS",      "Backup targets",             "named_list", sub_fields=_BACKUP_RAW_ENTRY),
+            Field("INTERVAL",     "Poll interval (seconds)", "int", 3600),
+            Field("ALERT_TARGET", "LED alert target name",   "str", "general", optional=True),
+            Field("BACKUPS",      "Backup targets",          "named_list", sub_fields=_BACKUP_RAW_ENTRY),
+            _ENABLED_FIELD,
         ],
     ),
     "W_BackupWatcherBorg": WorkerSchema(
         "Alert when Borg backup archives are overdue",
         [
-            Field("INTERVAL",     "Poll interval (seconds)",    "int", 3600),
-            Field("ALERT_TARGET", "LED alert target name",      "str", "general", optional=True),
-            Field("BACKUPS",      "Borg repositories",          "named_list", sub_fields=_BACKUP_BORG_ENTRY),
+            Field("INTERVAL",     "Poll interval (seconds)", "int", 3600),
+            Field("ALERT_TARGET", "LED alert target name",   "str", "general", optional=True),
+            Field("BACKUPS",      "Borg repositories",       "named_list", sub_fields=_BACKUP_BORG_ENTRY),
+            _ENABLED_FIELD,
         ],
     ),
     "W_Cron": WorkerSchema(
         "Schedule periodic jobs on cron expressions",
         [
-            Field("INTERVAL", "Tick interval (seconds)",  "int", 60),
-            Field("JOBS",     "Scheduled jobs",           "named_list", sub_fields=_CRON_JOB_ENTRY),
+            Field("INTERVAL", "Tick interval (seconds)", "int", 60),
+            Field("JOBS",     "Scheduled jobs",          "named_list", sub_fields=_CRON_JOB_ENTRY),
+            _ENABLED_FIELD,
         ],
     ),
     "W_TelegramBot": WorkerSchema(
         "Telegram bot — polls for commands and dispatches them",
         [
             Field("INTERVAL", "Polling interval (seconds)", "int", 5),
+            _ENABLED_FIELD,
         ],
     ),
     "W_HikProducer": WorkerSchema(
@@ -189,13 +201,15 @@ WORKER_SCHEMAS: dict[str, WorkerSchema] = {
             Field("INTERVAL",  "Reconnect check interval (seconds)",  "int", 30),
             Field("DEVICE",    "Device key from HIK_CONFIG.DEVICES",  "str"),
             Field("USE_REDIS", "Push events to Redis instead of RAM", "bool", False, optional=True),
+            _ENABLED_FIELD,
         ],
     ),
     "W_HikConsumer": WorkerSchema(
         "Process Hikvision motion events and trigger snapshot jobs",
         [
-            Field("INTERVAL",  "Poll interval (seconds)",               "int", 1),
-            Field("USE_REDIS", "Consume events from Redis instead of RAM", "bool", False, optional=True),
+            Field("INTERVAL",  "Poll interval (seconds)",                    "int", 1),
+            Field("USE_REDIS", "Consume events from Redis instead of RAM",   "bool", False, optional=True),
+            _ENABLED_FIELD,
         ],
     ),
 }
@@ -214,7 +228,8 @@ JOB_SCHEMAS: dict[str, JobSchema] = {
         [
             Field("HIK_DEVICE", "Device key from HIK_CONFIG.DEVICES", "str"),
             Field("MESSAGE",    "Alert message text",                  "str"),
-            Field("CHANNEL",    "ISAPI channel number",               "str", "101", optional=True),
+            Field("CHANNEL",    "ISAPI channel number",                "str", "101", optional=True),
+            _ENABLED_FIELD,
         ],
     ),
     "J_HikSnap": JobSchema(
@@ -223,13 +238,15 @@ JOB_SCHEMAS: dict[str, JobSchema] = {
             Field("HIK_DEVICE", "Device key from HIK_CONFIG.DEVICES", "str"),
             Field("DEST_DIR",   "Directory to save snapshots",        "str"),
             Field("CHANNEL",    "ISAPI channel number",               "str", "101", optional=True),
+            _ENABLED_FIELD,
         ],
     ),
     "J_HikSnapArch": JobSchema(
         "Archive Hikvision snapshots from source to destination",
         [
-            Field("SRC_DIR",  "Source snapshot directory",      "str"),
-            Field("DEST_DIR", "Destination archive directory",  "str"),
+            Field("SRC_DIR",  "Source snapshot directory",     "str"),
+            Field("DEST_DIR", "Destination archive directory", "str"),
+            _ENABLED_FIELD,
         ],
     ),
 }

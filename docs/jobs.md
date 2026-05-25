@@ -149,7 +149,8 @@ routine status messages so they respect the flag automatically.
    The schema drives validation in `Job.initialize()` and populates the
    `monda configure` wizard. Fields with `default=UNSET` and `optional=False`
    are required; the base class rejects the job if they are missing or the
-   wrong type.
+   wrong type. Pass a `choices=lambda: [...]` callable to show a selection
+   menu in the wizard instead of a free-text prompt.
 
 4. Run it (fire-and-forget):
 

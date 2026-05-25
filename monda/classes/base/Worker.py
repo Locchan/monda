@@ -15,7 +15,6 @@ class Worker:
 
     worker_class_name: str = "Worker"
     worker_class_name_short: str = "W:"
-    required_config_entries: list[str] = []
 
     def __init__(self, name: str, interval_s: int) -> None:
         if "-" in self.worker_class_name or '-' in name:
@@ -29,6 +28,7 @@ class Worker:
         self.interval = interval_s
         self.config = {}
         self.initialized = False
+        self._disabled = False
         self._status_entry: WorkerEntry | None = None
 
     def _work(self) -> None:
@@ -60,17 +60,18 @@ class Worker:
             entry.crashed_at = time.time()
             entry.crash_error = "No config."
             return False
-        schema = WORKER_SCHEMAS.get(self.worker_class_name)
-        if schema:
-            errors = validate(instance_config, schema.fields)
-        else:
-            errors = [f"'{k}' is required" for k in self.required_config_entries if k not in instance_config]
+        schema = WORKER_SCHEMAS[self.worker_class_name]
+        errors = validate(instance_config, schema.fields)
         if errors:
             msg = "; ".join(errors)
             logger.error(f"Config validation failed for {self.worker_class_name}/{self._instance_name}: {msg}")
             entry.crashed_at = time.time()
             entry.crash_error = f"Config error: {msg}"
             return False
+        if not instance_config.get("ENABLED", True):
+            logger.info(f"Worker {self.worker_class_name}/{self._instance_name} is disabled.")
+            self._disabled = True
+            return True
         self.config = instance_config
         self.initialized = bool(self._initialize())
         if not self.initialized:
@@ -103,6 +104,8 @@ class Worker:
             send_alert(f"Worker {self.name} crashed. Check monda logs.", target="general")
 
     def run(self) -> Thread | None:
+        if self._disabled:
+            return None
         if not self.initialized:
             logger.error(f"Could not start worker {self.name}: not initialized")
             return None
