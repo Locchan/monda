@@ -16,11 +16,12 @@ class WorkerEntry:
     restart_count: int = 0
     crashed_at: float | None = None
     crash_error: str | None = None
+    warning: bool = False
 
     def color(self) -> str:
         if self.crashed_at is not None:
             return "red"
-        if self.last_restart_at and (time.time() - self.last_restart_at) < 86400:
+        if self.warning or (self.last_restart_at and (time.time() - self.last_restart_at) < 86400):
             return "yellow"
         return "green"
 

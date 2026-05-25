@@ -70,6 +70,6 @@ class W_BackupWatcherRaw(Worker):
                 self._last_alert.pop(name, None)
                 logger.debug(f"Backup '{name}' OK. Last file: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(newest))}.")
         if overdue:
-            self._update_status(f"Overdue: {', '.join(overdue)}.")
+            self._update_status(f"Overdue: {', '.join(overdue)}.", warning=True)
         else:
             self._update_status("All backups on time.")

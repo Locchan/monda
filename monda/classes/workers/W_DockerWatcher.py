@@ -67,6 +67,6 @@ class W_DockerWatcher(Worker):
                 self._last_alert.pop(name)
         if unhealthy:
             parts = [f"{n} ({s})" for n, s in sorted(unhealthy.items())]
-            self._update_status(f"Unhealthy: {', '.join(parts)}.")
+            self._update_status(f"Unhealthy: {', '.join(parts)}.", warning=True)
         else:
             self._update_status("All containers healthy.")

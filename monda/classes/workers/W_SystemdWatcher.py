@@ -53,6 +53,6 @@ class W_SystemdWatcher(Worker):
             if service not in failed:
                 self._last_alert.pop(service)
         if failed:
-            self._update_status(f"Failed: {', '.join(sorted(failed))}.")
+            self._update_status(f"Failed: {', '.join(sorted(failed))}.", warning=True)
         else:
             self._update_status("No failures detected.")

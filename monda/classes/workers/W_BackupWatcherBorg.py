@@ -83,6 +83,6 @@ class W_BackupWatcherBorg(Worker):
                 self._last_alert.pop(name, None)
                 logger.debug(f"Backup '{name}' OK. Last backup: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(last_ts))}.")
         if overdue:
-            self._update_status(f"Overdue: {', '.join(overdue)}.")
+            self._update_status(f"Overdue: {', '.join(overdue)}.", warning=True)
         else:
             self._update_status("All backups on time.")
