@@ -10,6 +10,7 @@ class W_ConfigWatch(Worker):
     required_config_entries = []
 
     def _initialize(self) -> bool:
+        self._update_status("Watching config.")
         return True
 
     def _work(self) -> None:

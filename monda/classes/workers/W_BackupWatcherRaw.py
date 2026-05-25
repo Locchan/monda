@@ -29,6 +29,7 @@ class W_BackupWatcherRaw(Worker):
             if not os.path.isdir(spec["PATH"]):
                 logger.warning(f"Backup path for '{name}' does not exist: {spec['PATH']}")
         self._last_alert: dict[str, float] = {}
+        self._update_status(f"Watching {len(backups)} backup(s).")
         return True
 
     def _maybe_alert(self, name: str, message: str, target: str, now: float) -> None:
@@ -52,16 +53,23 @@ class W_BackupWatcherRaw(Worker):
     def _work(self) -> None:
         now = time.time()
         alert_target = self.config.get("ALERT_TARGET", "general")
+        overdue: list[str] = []
         for name, spec in self.config.get("BACKUPS", {}).items():
             path = spec["PATH"]
             deadline = now - (spec["EXPECTED_PERIOD_MINUTES"] + spec["PERMITTED_LAG_MINUTES"]) * 60
             newest = self._newest_mtime(path)
             if newest is None:
                 self._maybe_alert(name, f"Backup '{name}': no files found in {path}.", alert_target, now)
+                overdue.append(name)
                 continue
             if newest < deadline:
                 last_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(newest))
                 self._maybe_alert(name, f"Backup '{name}' overdue. Last file: {last_str}.", alert_target, now)
+                overdue.append(name)
             else:
                 self._last_alert.pop(name, None)
                 logger.debug(f"Backup '{name}' OK. Last file: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(newest))}.")
+        if overdue:
+            self._update_status(f"Overdue: {', '.join(overdue)}.")
+        else:
+            self._update_status("All backups on time.")

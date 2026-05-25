@@ -6,6 +6,7 @@ from croniter import croniter
 from monda.classes.base.Worker import Worker
 from monda.classes.jobs import ENABLED_JOBS
 from monda.utils.logger import get_logger
+from monda.utils.status import get_or_create_job
 
 logger: logging.Logger = get_logger()
 
@@ -43,6 +44,7 @@ class W_Cron(Worker):
                 logger.error(f"W_Cron job '{job_name}' references unknown JOB_CLASS: {job_class_name!r}")
                 return False
         self._last_check = datetime.now()
+        self._update_status(f"Scheduled {len(jobs)} job(s).")
         return True
 
     def _spawn_job(self, job_name: str, job_class_name: str, params: dict, silent: bool) -> None:
@@ -56,7 +58,8 @@ class W_Cron(Worker):
 
     def _work(self) -> None:
         now = datetime.now()
-        for job_name, spec in self.config.get("JOBS", {}).items():
+        jobs = self.config.get("JOBS", {})
+        for job_name, spec in jobs.items():
             schedule = spec.get("SCHEDULE")
             job_class_name = spec.get("JOB_CLASS")
             if not schedule or not job_class_name:
@@ -64,7 +67,10 @@ class W_Cron(Worker):
             if not croniter.is_valid(schedule):
                 logger.warning(f"W_Cron: skipping '{job_name}' — invalid schedule {schedule!r}")
                 continue
+            entry = get_or_create_job(f"{job_class_name}/{job_name}")
+            entry.next_run_at = croniter(schedule, now).get_next(datetime).timestamp()
             if croniter(schedule, self._last_check).get_next(datetime) <= now:
                 logger.debug(f"W_Cron: firing '{job_name}' ({job_class_name})")
                 self._spawn_job(job_name, job_class_name, spec.get("PARAMS") or {}, spec.get("SILENT", False))
         self._last_check = now
+        self._update_status(f"Scheduled {len(jobs)} job(s).")

@@ -87,6 +87,7 @@ class W_SSHLoginWatcher(Worker):
                 self._inode = st.st_ino
             except OSError:
                 pass
+            self._update_status(f"Watching {log_path}. No logins detected.")
             return True
 
         logger.info("No readable SSH log file found, falling back to journalctl.")
@@ -104,6 +105,7 @@ class W_SSHLoginWatcher(Worker):
         if r.returncode != 0:
             logger.error("journalctl is not available or failed. Cannot watch SSH logins.")
             return False
+        self._update_status("Watching journalctl. No logins detected.")
         return True
 
     def _read_file_events(self) -> list[tuple[str, str]]:
@@ -154,3 +156,4 @@ class W_SSHLoginWatcher(Worker):
         events = self._read_file_events() if self._mode == "file" else self._read_jctl_events()
         for user, addr in events:
             send_alert(f"SSH login: user '{user}' from {addr}.", target=self._alert_target)
+            self._update_status(f"Last SSH login: '{user}' from {addr}.")

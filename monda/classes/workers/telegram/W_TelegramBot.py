@@ -72,7 +72,9 @@ class W_TelegramBot(Worker):
             resp = requests.get(f"{self._api_base}/getMe", timeout=10)
             resp.raise_for_status()
             bot_info = resp.json().get("result", {})
-            logger.info(f"Telegram bot connected: @{bot_info.get('username', '?')}")
+            username = bot_info.get('username', '?')
+            logger.info(f"Telegram bot connected: @{username}")
+            self._update_status(f"Bot @{username} connected.")
         except Exception as e:
             logger.error(f"Could not connect to Telegram API: {e}")
             return False

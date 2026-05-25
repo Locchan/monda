@@ -30,6 +30,7 @@ class W_BackupWatcherBorg(Worker):
                     logger.error(f"Backup '{name}' missing '{key}'.")
                     return False
         self._last_alert: dict[str, float] = {}
+        self._update_status(f"Watching {len(backups)} backup(s).")
         return True
 
     def _maybe_alert(self, name: str, message: str, target: str, now: float) -> None:
@@ -59,6 +60,7 @@ class W_BackupWatcherBorg(Worker):
     def _work(self) -> None:
         now = time.time()
         alert_target = self.config.get("ALERT_TARGET", "general")
+        overdue: list[str] = []
         for name, spec in self.config.get("BACKUPS", {}).items():
             path = spec["PATH"]
             deadline = now - (spec["EXPECTED_PERIOD_MINUTES"] + spec["PERMITTED_LAG_MINUTES"]) * 60
@@ -67,13 +69,20 @@ class W_BackupWatcherBorg(Worker):
             except Exception as e:
                 logger.error(f"Backup '{name}': borg check failed: {e}")
                 self._maybe_alert(name, f"Backup '{name}': borg check failed: {e}", alert_target, now)
+                overdue.append(name)
                 continue
             if last_ts is None:
                 self._maybe_alert(name, f"Backup '{name}': no archives in {path}.", alert_target, now)
+                overdue.append(name)
                 continue
             if last_ts < deadline:
                 last_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(last_ts))
                 self._maybe_alert(name, f"Backup '{name}' overdue. Last backup: {last_str}.", alert_target, now)
+                overdue.append(name)
             else:
                 self._last_alert.pop(name, None)
                 logger.debug(f"Backup '{name}' OK. Last backup: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(last_ts))}.")
+        if overdue:
+            self._update_status(f"Overdue: {', '.join(overdue)}.")
+        else:
+            self._update_status("All backups on time.")

@@ -6,6 +6,7 @@ from threading import Thread
 from monda.utils.led_alert import send_alert
 from monda.utils.logger import get_logger
 from monda.utils.misc import read_config
+from monda.utils.status import get_or_create_job
 
 logger: logging.Logger = get_logger()
 
@@ -86,17 +87,29 @@ class Job:
         return self.initialized
 
     def _run(self) -> None:
+        entry = get_or_create_job(f"{self.job_class_name}/{self._instance_name}")
+        entry.run_count += 1
+        entry.last_run_at = time.time()
+
         self._info(f"'{self.name}' starting...")
         started = time.monotonic()
         try:
             self._work()
         except Exception as e:
-            elapsed = _format_duration(time.monotonic() - started)
-            logger.exception(f"'{self.name}' failed after {elapsed}: {e}")
+            elapsed = time.monotonic() - started
+            elapsed_str = _format_duration(elapsed)
+            entry.last_run_ok = False
+            entry.last_run_duration = elapsed
+            entry.detail = f"Failed after {elapsed_str}: {e}"
+            logger.exception(f"'{self.name}' failed after {elapsed_str}: {e}")
             send_alert(f"Job {self.name} failed. Check monda logs.", target="general")
             return
-        elapsed = _format_duration(time.monotonic() - started)
-        self._info(f"'{self.name}' finished in {elapsed}")
+        elapsed = time.monotonic() - started
+        elapsed_str = _format_duration(elapsed)
+        entry.last_run_ok = True
+        entry.last_run_duration = elapsed
+        entry.detail = f"Last run: success, took {elapsed_str}."
+        self._info(f"'{self.name}' finished in {elapsed_str}")
 
     def run(self) -> Thread | None:
         if self.__class__ in self.disabled_jobs:

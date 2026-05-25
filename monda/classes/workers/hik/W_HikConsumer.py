@@ -62,6 +62,7 @@ class W_HikConsumer(Worker):
         self._use_redis: bool = self.config.get("USE_REDIS", False)
         if self._use_redis:
             get_redis_client()
+        self._update_status("Consuming events.")
         return True
 
     def _work(self) -> None:

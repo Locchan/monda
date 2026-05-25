@@ -21,6 +21,7 @@ class W_DockerWatcher(Worker):
 
     def _initialize(self) -> bool:
         self._last_alert: dict[str, float] = {}
+        self._update_status("All containers healthy.")
         return True
 
     def _maybe_alert(self, name: str, message: str, target: str, now: float) -> None:
@@ -64,3 +65,8 @@ class W_DockerWatcher(Worker):
         for name in list(self._last_alert):
             if name not in unhealthy:
                 self._last_alert.pop(name)
+        if unhealthy:
+            parts = [f"{n} ({s})" for n, s in sorted(unhealthy.items())]
+            self._update_status(f"Unhealthy: {', '.join(parts)}.")
+        else:
+            self._update_status("All containers healthy.")

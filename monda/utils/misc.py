@@ -1,3 +1,4 @@
+import atexit
 import json
 import os
 import signal
@@ -8,6 +9,8 @@ from art import text2art
 _config_file: str | None = None
 _config_mtime: float | None = None
 _config: dict = {}
+
+_pid_file: str | None = None
 
 
 def _navigate(data: dict, keys: list[str]) -> dict:
@@ -122,10 +125,42 @@ def append_config_entry(path: str, value: Any) -> None:
     write_config(config)
 
 
+def acquire_pid_file(path: str) -> None:
+    global _pid_file
+    if os.path.exists(path):
+        try:
+            pid = int(open(path).read().strip())
+            os.kill(pid, 0)
+            print(f"Error: another monda instance is already running (PID {pid}).")
+            os._exit(1)
+        except ProcessLookupError:
+            pass
+        except PermissionError:
+            print(f"Error: another monda instance is already running.")
+            os._exit(1)
+        except ValueError:
+            pass
+    with open(path, "w") as f:
+        f.write(str(os.getpid()))
+    _pid_file = path
+    atexit.register(release_pid_file)
+
+
+def release_pid_file() -> None:
+    global _pid_file
+    if _pid_file:
+        try:
+            os.remove(_pid_file)
+        except OSError:
+            pass
+        _pid_file = None
+
+
 def signal_stop(_signo: int, _stack_frame: object) -> None:
     from monda.utils.logger import get_logger
     logger = get_logger()
     logger.info(f"Caught {signal.Signals(_signo).name}. Shutting down...")
+    release_pid_file()
     os._exit(0)
 
 

@@ -18,6 +18,7 @@ class W_SystemdWatcher(Worker):
 
     def _initialize(self) -> bool:
         self._last_alert: dict[str, float] = {}
+        self._update_status("No failures detected.")
         return True
 
     def _maybe_alert(self, name: str, message: str, target: str, now: float) -> None:
@@ -51,3 +52,7 @@ class W_SystemdWatcher(Worker):
         for service in list(self._last_alert):
             if service not in failed:
                 self._last_alert.pop(service)
+        if failed:
+            self._update_status(f"Failed: {', '.join(sorted(failed))}.")
+        else:
+            self._update_status("No failures detected.")

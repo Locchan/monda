@@ -105,11 +105,18 @@ class W_HikProducer(Worker):
         self._resolve_device()
         if self._use_redis:
             get_redis_client()
+        self._update_status(f"Watching device '{self.config['DEVICE']}'.")
         return True
 
     def _work(self) -> None:
         if self._use_redis:
             self._drain_to_redis()
         auth, alert_url, username = self._resolve_device()
+        device_name = self.config["DEVICE"]
+        self._update_status(f"Connecting to '{device_name}'...")
+        connected = False
         for alert in self._stream_alerts(auth, alert_url, username):
+            if not connected:
+                connected = True
+                self._update_status(f"Connected to '{device_name}'.")
             self.process_alert(alert)

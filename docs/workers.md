@@ -155,6 +155,70 @@ Messages not starting with `/` are silently ignored.
 }
 ```
 
+## W_MondaStatus
+
+Starts a minimal HTTP server that responds to `GET /status` with a JSON
+object describing the daemon's internal state. All other paths return 404.
+
+The server runs in its own daemon thread started in `_initialize`. The
+worker's `_work` tick only checks whether that thread is alive and restarts
+it if not. `INTERVAL` controls how often the health check runs, not the
+request rate.
+
+### `monda status` command
+
+```
+monda status
+```
+
+Reads the config, looks up the first `W_MondaStatus` instance's `PORT`,
+sends `GET /status`, and prints a human-readable summary:
+
+```
+status:  ok
+version: 1.1.31+m
+uptime:  0h 5m 12s
+```
+
+### Single-instance enforcement
+
+MonDa writes its PID to a file on startup (`/tmp/monda.pid` by default, or
+the `PID_FILE` top-level config key). If the file exists and the recorded
+process is still alive, the new instance exits immediately with an error.
+The PID file is removed on clean shutdown (SIGTERM / SIGINT) and on normal
+Python exit via `atexit`.
+
+### Config
+
+| Key        | Type | Required | Default | Purpose                             |
+|------------|------|----------|---------|-------------------------------------|
+| `PORT`     | int  | yes      | —       | TCP port for the HTTP status server.|
+| `INTERVAL` | int  | no       | `10`    | Seconds between server health checks.|
+
+Top-level config key (not under `WORKER_CONFIG`):
+
+| Key        | Type   | Required | Default          | Purpose             |
+|------------|--------|----------|------------------|---------------------|
+| `PID_FILE` | string | no       | `/tmp/monda.pid` | Path to the PID file.|
+
+```json
+"WORKER_CONFIG": {
+  "W_MondaStatus": {
+    "main": { "PORT": 7342, "INTERVAL": 30 }
+  }
+}
+```
+
+### Response format (stub)
+
+```json
+{
+  "status": "ok",
+  "version": "1.1.31+m",
+  "uptime_seconds": 312.4
+}
+```
+
 ## W_BackupWatcherRaw
 
 Checks a set of named directories (including subdirectories) for recent files.
