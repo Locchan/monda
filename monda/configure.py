@@ -312,8 +312,19 @@ def _find_config_path(argv_path: str | None) -> str:
     return "/etc/monda/config.json"
 
 
+def _check_writable(path: str) -> bool:
+    if os.path.exists(path):
+        return os.access(path, os.W_OK)
+    parent = os.path.dirname(os.path.abspath(path))
+    return os.access(parent, os.W_OK) if os.path.isdir(parent) else True
+
+
 def run_configure(argv_path: str | None = None) -> None:
     path = _find_config_path(argv_path)
+
+    if not _check_writable(path):
+        print(f"Error: no write permission for {path}")
+        sys.exit(1)
 
     if os.path.isfile(path):
         with open(path, encoding="utf-8") as f:
