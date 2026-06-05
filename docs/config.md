@@ -75,8 +75,8 @@ is unreachable.
 monda logs
 ```
 
-Interactive menu for reading debug log files. Requires `LOG_DIR` in config
-(or legacy `LOG_FILE`, which maps to `<dirname>/monda/`).
+Interactive menu for reading debug log files. Uses `LOG_DIR` from config,
+defaulting to `/var/log/monda` (same path created by `install.sh`).
 
 1. Choose log type: **general**, **worker**, or **job**.
 2. For worker/job, pick from the list of existing log files.
@@ -141,7 +141,7 @@ selection menu automatically.
 |-----------------|--------|----------|---------|--------------------------------------------------------------------------|
 | `NAME`          | string | no       | —       | Display name. Currently informational only.                              |
 | `DEBUG`         | int    | no       | `0`     | If truthy, enables `DEBUG`-level logging and prints the loaded config.   |
-| `LOG_DIR`       | string | no       | —       | Directory for log files. Each worker/job gets its own debug log file under `workers/` and `jobs/`. General daemon logs go to `general.log`. If omitted, logs go to stdout only. |
+| `LOG_DIR`       | string | no       | `"/var/log/monda"` | Directory for log files. Each worker/job gets its own debug log file under `workers/` and `jobs/`. General daemon logs go to `general.log`. |
 | `LOG_FILE`      | string | no       | —       | **Deprecated.** If set without `LOG_DIR`, logs are written to `<dirname>/monda/`. |
 | `TZ`            | string | no       | `"UTC"` | IANA timezone applied to parsed event timestamps (e.g. `Europe/Minsk`).  |
 | `HIK_CONFIG`    | object | no       | —       | Hikvision subsystem settings. See below.                                 |

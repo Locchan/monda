@@ -110,7 +110,7 @@ UNIT_PATH=/etc/systemd/system/monda.service
 sed -e "s|%MONDA_BIN%|$MONDA_BIN|g" "$SCRIPT_DIR/monda.service" > "$UNIT_PATH"
 echo "Installed unit file: $UNIT_PATH"
 
-LOG_DIR=/var/log/monda
+LOG_DIR=/var/log/monda  # must match DEFAULT_LOG_DIR in monda/utils/logger.py
 mkdir -p "$LOG_DIR/workers" "$LOG_DIR/jobs"
 echo "Created log directory: $LOG_DIR"
 
@@ -129,7 +129,6 @@ cat <<EOF
 
 Done. Next steps:
   1. Place your config at $CONFIG_FILE (see docs/config.md).
-     Set LOG_DIR to $LOG_DIR if you want per-worker debug log files.
   2. systemctl enable --now monda
   3. monda logs                 # per-worker/job debug logs
      journalctl -u monda -f     # systemd stdout logs

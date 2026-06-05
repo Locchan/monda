@@ -76,8 +76,7 @@ def main() -> None:
     config = read_config()
 
     log_dir = resolve_log_dir(config)
-    if log_dir:
-        setup_log_dir(log_dir)
+    setup_log_dir(log_dir)
 
     if "DEBUG" in config and config["DEBUG"]:
         setdebug()

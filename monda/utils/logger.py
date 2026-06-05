@@ -24,6 +24,8 @@ loggers: dict[str, logging.Logger] = {}
 
 default_level: int = logging.INFO
 
+DEFAULT_LOG_DIR: str = "/var/log/monda"
+
 
 def detect_terminal() -> str | bool:
     if os.getenv('PSModulePath', ''):
@@ -48,13 +50,13 @@ def _get_stdout_handler(level: int) -> logging.StreamHandler:
     return handler
 
 
-def resolve_log_dir(config: dict) -> str | None:
+def resolve_log_dir(config: dict) -> str:
     if log_dir := config.get("LOG_DIR"):
         return log_dir
     if log_file := config.get("LOG_FILE"):
         base = os.path.dirname(log_file) or "/var/log"
         return os.path.join(base, "monda")
-    return None
+    return DEFAULT_LOG_DIR
 
 
 def get_log_dir() -> str | None:

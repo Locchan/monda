@@ -32,9 +32,6 @@ def _select_from_list(paths: list[str]) -> str | None:
 def run_logs() -> None:
     config = read_config()
     log_dir = resolve_log_dir(config)
-    if not log_dir:
-        print("LOG_DIR is not configured.")
-        sys.exit(1)
 
     from monda.utils import logger as logger_mod
     if logger_mod.get_log_dir() is None:

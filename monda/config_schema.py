@@ -51,7 +51,7 @@ GLOBAL_FIELDS: list[Field] = [
     Field("TZ",                    "Timezone",                          "str", "UTC"),
     Field("CONFIG_WATCH_INTERVAL", "Config reload interval (seconds)",  "int", 5),
     Field("PID_FILE",              "PID file path",                     "str", optional=True),
-    Field("LOG_DIR",               "Log directory (per-worker/job debug files)", "str", optional=True),
+    Field("LOG_DIR",               "Log directory (per-worker/job debug files)", "str", "/var/log/monda", optional=True),
     Field("LOG_FILE",              "Deprecated — use LOG_DIR instead",  "str", optional=True),
 ]
 
