@@ -1,0 +1,12 @@
+/var/log/monda/general.log
+/var/log/monda/workers/*.log
+/var/log/monda/jobs/*.log
+{
+    daily
+    rotate 30
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+}

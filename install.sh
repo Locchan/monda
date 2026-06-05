@@ -110,6 +110,14 @@ UNIT_PATH=/etc/systemd/system/monda.service
 sed -e "s|%MONDA_BIN%|$MONDA_BIN|g" "$SCRIPT_DIR/monda.service" > "$UNIT_PATH"
 echo "Installed unit file: $UNIT_PATH"
 
+LOG_DIR=/var/log/monda
+mkdir -p "$LOG_DIR/workers" "$LOG_DIR/jobs"
+echo "Created log directory: $LOG_DIR"
+
+LOGROTATE_PATH=/etc/logrotate.d/monda
+install -m 0644 "$SCRIPT_DIR/logrotate/monda" "$LOGROTATE_PATH"
+echo "Installed logrotate config: $LOGROTATE_PATH"
+
 systemctl daemon-reload
 
 if systemctl is-active --quiet monda; then
@@ -121,6 +129,9 @@ cat <<EOF
 
 Done. Next steps:
   1. Place your config at $CONFIG_FILE (see docs/config.md).
+     Set LOG_DIR to $LOG_DIR if you want per-worker debug log files.
   2. systemctl enable --now monda
-  3. journalctl -u monda -f   # to watch logs
+  3. monda logs                 # per-worker/job debug logs
+     journalctl -u monda -f     # systemd stdout logs
+  Log files under $LOG_DIR rotate daily; 30 days kept, gzip-compressed.
 EOF

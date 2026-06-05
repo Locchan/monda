@@ -69,6 +69,33 @@ workers and jobs.
 Requires `W_MondaStatus` to be running. Exits with code 1 if the endpoint
 is unreachable.
 
+### `monda logs`
+
+```
+monda logs
+```
+
+Interactive menu for reading debug log files. Requires `LOG_DIR` in config
+(or legacy `LOG_FILE`, which maps to `<dirname>/monda/`).
+
+1. Choose log type: **general**, **worker**, or **job**.
+2. For worker/job, pick from the list of existing log files.
+3. Opens the selected file in `less`.
+
+Log layout under `LOG_DIR`:
+
+```
+LOG_DIR/
+  general.log              # main daemon thread
+  workers/
+    W_Cron_main.log        # one file per worker thread
+  jobs/
+    J_snap_reg_dacha.log   # one file per job thread
+```
+
+Stdout still receives INFO-level (or DEBUG when `DEBUG` is enabled) logs.
+Each worker/job thread additionally writes DEBUG+ logs to its own file.
+
 ### `monda configure [config_path]`
 
 ```
@@ -114,7 +141,8 @@ selection menu automatically.
 |-----------------|--------|----------|---------|--------------------------------------------------------------------------|
 | `NAME`          | string | no       | —       | Display name. Currently informational only.                              |
 | `DEBUG`         | int    | no       | `0`     | If truthy, enables `DEBUG`-level logging and prints the loaded config.   |
-| `LOG_FILE`      | string | no       | —       | Path to a log file. If omitted, logs go to stdout only.                  |
+| `LOG_DIR`       | string | no       | —       | Directory for log files. Each worker/job gets its own debug log file under `workers/` and `jobs/`. General daemon logs go to `general.log`. If omitted, logs go to stdout only. |
+| `LOG_FILE`      | string | no       | —       | **Deprecated.** If set without `LOG_DIR`, logs are written to `<dirname>/monda/`. |
 | `TZ`            | string | no       | `"UTC"` | IANA timezone applied to parsed event timestamps (e.g. `Europe/Minsk`).  |
 | `HIK_CONFIG`    | object | no       | —       | Hikvision subsystem settings. See below.                                 |
 | `REDIS`         | object | no       | —       | Single Redis endpoint. Required if any Hik worker is enabled.            |
@@ -236,7 +264,7 @@ booleans are unquoted, arrays use `[...]`.
 {
   "NAME": "monda",
   "DEBUG": 0,
-  "LOG_FILE": "/var/log/monda.log",
+  "LOG_DIR": "/var/log/monda",
   "TZ": "Europe/Minsk",
   "CONFIG_WATCH_INTERVAL": 5,
   "LED_TARGETS": {

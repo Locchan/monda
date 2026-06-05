@@ -18,6 +18,8 @@ The installer:
 3. Symlinks the `monda` command to `/usr/local/bin/monda`.
 4. Creates the config directory `/etc/monda/`.
 5. Installs the `monda.service` systemd unit.
+6. Creates `/var/log/monda/` and installs a logrotate config (daily rotation,
+   30 days retained, gzip-compressed).
 
 After installation:
 
