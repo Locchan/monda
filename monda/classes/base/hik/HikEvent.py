@@ -1,12 +1,8 @@
 import datetime
-import logging
 import xml.etree.ElementTree as ET
 from zoneinfo import ZoneInfo
 
-from monda.utils.logger import get_logger
 from monda.utils.misc import read_config
-
-logger: logging.Logger = get_logger()
 
 
 class HikEvent:
@@ -21,7 +17,6 @@ class HikEvent:
         dt = datetime.datetime.fromisoformat(date)
         tz = ZoneInfo(timezone)
         self.date = dt.replace(tzinfo=tz) if dt.tzinfo is None else dt.astimezone(tz)
-        logger.debug(repr(self))
 
     def __repr__(self) -> str:
         return f"HikEvent(source={self.source!r}, name={self.name!r}, state={self.state!r}, date={self.date.isoformat()})"

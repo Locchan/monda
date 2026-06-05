@@ -54,6 +54,7 @@ class W_HikProducer(Worker):
         event = HikEvent.from_xml(alert, source=self._instance_name)
         if is_ignored_event(event.name, event.state):
             return
+        logger.debug(repr(event))
         max_size = read_config().get("HIK_CONFIG", {}).get("EVENT_DEQUE_MAX_SIZE", 30)
         if len(HikEvents) == max_size:
             logger.error(f"HikEvent queue is full ({max_size}). We're bleeding data!")

@@ -78,9 +78,10 @@ monda logs
 Interactive menu for reading debug log files. Uses `LOG_DIR` from config,
 defaulting to `/var/log/monda` (same path created by `install.sh`).
 
-1. Choose log type: **general**, **worker**, or **job**.
+1. Choose log type: **general**, **worker**, **job**, or **all (merged)**.
 2. For worker/job, pick from the list of existing log files.
-3. Opens the selected file in `less`.
+3. Opens the selected file in `less`. **all (merged)** combines every log file
+   under `LOG_DIR`, sorted by timestamp, into a single view.
 
 Log layout under `LOG_DIR`:
 

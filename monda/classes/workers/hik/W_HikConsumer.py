@@ -33,6 +33,7 @@ class W_HikConsumer(Worker):
     def process_event(self, event: HikEvent) -> None:
         if is_ignored_event(event.name, event.state):
             return
+        logger.debug(f"Consumed: {event!r}")
         if event.name not in self.known_event_types:
             send_alert(f"Unknown Hik event: {event.name} ({event.state}) from {event.source}", target="general")
             return
@@ -73,7 +74,6 @@ class W_HikConsumer(Worker):
                 except IndexError:
                     break
                 self.process_event(event)
-                logger.debug(f"Consumed: {event!r}")
                 count += 1
             return
         try:
@@ -91,4 +91,3 @@ class W_HikConsumer(Worker):
                 logger.error(f"Dropping malformed event from Redis: {e}: {raw!r}")
                 continue
             self.process_event(event)
-            logger.debug(f"Consumed: {event!r}")

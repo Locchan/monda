@@ -128,6 +128,17 @@ def list_log_files(category: str, log_dir: str | None = None) -> list[str]:
     )
 
 
+def list_all_log_files(log_dir: str | None = None) -> list[str]:
+    log_dir = log_dir or _log_dir
+    if log_dir is None:
+        return []
+    paths: list[str] = []
+    paths.extend(list_log_files("general", log_dir))
+    paths.extend(list_log_files("workers", log_dir))
+    paths.extend(list_log_files("jobs", log_dir))
+    return paths
+
+
 def _logger_level(stdout_level: int) -> int:
     if _entity_handler is not None:
         return logging.DEBUG
