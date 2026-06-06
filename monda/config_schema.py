@@ -119,6 +119,15 @@ class WorkerSchema:
 
 
 WORKER_SCHEMAS: dict[str, WorkerSchema] = {
+    "W_MDadm": WorkerSchema(
+        "Alert on mdadm RAID events: drive failure, inactive array, resync start/end",
+        [
+            Field("INTERVAL",     "Poll interval (seconds)",              "int", 30),
+            Field("ALERT_TARGET", "LED alert target name",                "str", "general", optional=True),
+            Field("MDSTAT_PATH",  "Path to mdstat file",                  "str", "/proc/mdstat", optional=True),
+            _ENABLED_FIELD,
+        ],
+    ),
     "W_MondaStatus": WorkerSchema(
         "HTTP status endpoint — serves GET /status as JSON",
         [
