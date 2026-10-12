@@ -57,6 +57,7 @@ class Worker:
         instance_config = worker_config.get(self.worker_class_name, {}).get(self._instance_name)
         if instance_config is None:
             logger.error("Could not initialize: no config.")
+            entry.detail = "No config."
             entry.crashed_at = time.time()
             entry.crash_error = "No config."
             return False
@@ -65,16 +66,19 @@ class Worker:
         if errors:
             msg = "; ".join(errors)
             logger.error(f"Config validation failed for {self.worker_class_name}/{self._instance_name}: {msg}")
+            entry.detail = "Config validation failed."
             entry.crashed_at = time.time()
             entry.crash_error = f"Config error: {msg}"
             return False
         if not instance_config.get("ENABLED", True):
             logger.info(f"Worker {self.worker_class_name}/{self._instance_name} is disabled.")
             self._disabled = True
+            entry.detail = "Disabled."
             return True
         self.config = instance_config
         self.initialized = bool(self._initialize())
         if not self.initialized:
+            entry.detail = "Initialization failed."
             entry.crashed_at = time.time()
             entry.crash_error = "Initialization failed."
         return self.initialized

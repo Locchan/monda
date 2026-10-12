@@ -29,13 +29,14 @@ def validate_worker_config() -> bool:
             seen.append(name)
     return True
 
-def start_all_workers() -> list[tuple[Thread, str, str]]:
+def start_all_workers() -> list[tuple[Thread | None, str, str]]:
     logger.info("Starting all workers...")
     worker_config = read_config().get("WORKER_CONFIG", {})
     threads = []
     for worker_type, instances in worker_config.items():
         for instance_name in instances:
             thread = start_worker_by_name(worker_type, instance_name)
-            if thread is not None:
-                threads.append((thread, worker_type, instance_name))
+            # Keep failed initializations in the supervisor list so the main
+            # loop can retry them later.
+            threads.append((thread, worker_type, instance_name))
     return threads

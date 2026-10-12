@@ -93,13 +93,22 @@ def main() -> None:
 
     while True:
         for i, (thread, worker_type, instance_name) in enumerate(worker_threads):
-            if not thread.is_alive():
-                logger.warning(f"Resurrecting a dead worker: {thread.name}")
+            if thread is None or not thread.is_alive():
+                instance_config = (read_config()
+                                   .get("WORKER_CONFIG", {})
+                                   .get(worker_type, {})
+                                   .get(instance_name))
+                if instance_config is None or not instance_config.get("ENABLED", True):
+                    continue
+                if thread is None:
+                    logger.warning(f"Retrying worker initialization: {worker_type}/{instance_name}")
+                else:
+                    logger.warning(f"Resurrecting a dead worker: {thread.name}")
                 new_thread = start_worker_by_name(worker_type, instance_name)
                 if new_thread is not None:
                     worker_threads[i] = (new_thread, worker_type, instance_name)
                 else:
-                    logger.error(f"Could not resurrect dead worker: {thread.name}")
+                    logger.error(f"Could not restart worker: {worker_type}/{instance_name}")
             time.sleep(0.5)
         time.sleep(5)
 
