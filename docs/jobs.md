@@ -215,9 +215,10 @@ if J_HikAlertSnap.acquire("cam_front"):
 Downloads a recorded clip from a Hikvision camera or NVR and sends it as an
 LED alert. The clip spans `BEFORE_SEC` seconds before the alert and
 `AFTER_SEC` seconds after it. Playback asks for 8 more seconds so the last
-keyframe is included. The job then sleeps until 10 seconds after that
-playback end, because the NVR rejects a range it has not indexed yet. The
-sleep runs in the job thread; the caller does not block.
+keyframe is included. The job sleeps until 10 seconds after that playback
+end, then tries the download every 10 seconds, up to 10 times. Failed
+attempts are not logged. The sleep and the retries run in the job thread;
+the caller does not block.
 
 The camera or NVR must actually be recording (SD card, NVR disk). The
 download asks the device for that time range; it does not record a live
@@ -252,10 +253,11 @@ second between the times sent to the job is inside the file. `ffmpeg` copies
 that stream to a temporary `.mp4` and hands it to `send_alert` with
 `target="dacha_alerts"`. `ffmpeg` and `ffprobe` must be on `PATH`.
 
-The NVR sometimes stops sending before `endtime`. A clip shorter than the
-requested window plus 8 seconds cannot reach the end time, so the job
-discards it and retries, up to 4 attempts 5 seconds apart. After `endtime`
-the NVR goes silent; `ffmpeg` closes the file after 8 seconds without data.
+The NVR sometimes stops sending before `endtime`, or returns 400 until the
+range is old enough. A clip shorter than the requested window plus 8 seconds
+cannot reach the end time, so the job discards it and retries. After
+`endtime` the NVR goes silent; `ffmpeg` closes the file after 8 seconds
+without data.
 
 ### Rate limiting
 

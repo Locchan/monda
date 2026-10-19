@@ -14,13 +14,14 @@ from monda.utils.misc import read_config
 
 logger: logging.Logger = get_logger()
 
-_DOWNLOAD_ATTEMPTS = 4
-_RETRY_DELAY_S = 5
+_DOWNLOAD_ATTEMPTS = 10
+_RETRY_DELAY_S = 10
 _MIN_BYTES = 1024
 # Extend the RTSP range by one GOP on each side. This NVR places keyframes
 # about 4s apart, and playback starts on the keyframe at or before starttime.
 _KEYFRAME_MARGIN = 8.0
-# Playback of the latest seconds is not available the moment they happen.
+# First try is this long after the playback end. The NVR often answers 400
+# until the range is older than that, so the job retries quietly.
 _PLAYBACK_LAG = 10.0
 # The NVR goes silent after endtime instead of closing; this is how long
 # ffmpeg waits before finishing the file.
@@ -208,13 +209,12 @@ class J_HikAlertClip(Job):
                     raise _DownloadError(
                         f"NVR sent {duration:.1f}s, need {needed:.1f}s to cover the requested window."
                     )
-                logger.info(f"Clip is {duration:.1f}s and contains the requested {requested:.1f}s.")
+                logger.info(f"Downloaded {os.path.basename(dest)} ({duration:.1f}s).")
                 return dest
             except _DownloadError as e:
                 _unlink(dest)
                 if not e.retryable or attempt == _DOWNLOAD_ATTEMPTS:
                     raise
-                logger.warning(f"Clip download attempt {attempt}/{_DOWNLOAD_ATTEMPTS} failed: {e}")
                 time.sleep(_RETRY_DELAY_S)
         raise RuntimeError("unreachable")
 
