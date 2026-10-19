@@ -131,8 +131,10 @@ Unknown event types are forwarded to LED as alerts. Known types:
 | `VMD`       | Motion detection                   | triggers `J_HikAlertSnap` and `J_HikAlertClip` |
 
 **VMD handling:** when `process_event` receives a `VMD` (motion detection)
-event, it resolves the source producer's `DEVICE` from `WORKER_CONFIG` and
-fires two jobs, each with its own rate limit:
+event, it resolves the source producer's `DEVICE` from `WORKER_CONFIG`. A
+camera listed in `HIK_CONFIG.SILENCED` with a deadline still in the future
+produces neither a snapshot nor a clip. Otherwise it fires two jobs, each
+with its own rate limit:
 
 - `J_HikAlertSnap` — one snapshot per `ALERT_PERIOD` seconds per camera
   using the source camera device

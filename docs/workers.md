@@ -159,7 +159,8 @@ Polls for Telegram messages and dispatches bot commands. Requires the
 
 | Command        | Description                                    |
 |----------------|------------------------------------------------|
-| `/hik_sender`  | Toggle `J_HikAlertSnap` on or off (no arguments). |
+| `/hik_sender`  | Toggle Hik snaps and clips on or off.          |
+| `/silence`     | Reply to an alert to silence that camera.      |
 | `/trigger`     | List enabled jobs, or run one (see below).     |
 | `/help`        | List all available commands.                   |
 
@@ -180,6 +181,13 @@ a value that contains spaces: `MESSAGE="Front gate"`. Unknown keys are
 rejected. `/trigger` of `J_HikAlertClip` uses the Telegram message time,
 converted into config `TZ`, as the alert time, so `ALERT_TIME` is not an
 argument.
+
+`/hik_sender` turns `J_HikAlertSnap` and `J_HikAlertClip` on or off together.
+
+`/silence` must be a reply to a camera alert. With no duration it silences
+that camera's snaps and clips for 8 hours. `/silence 12h` and `/silence 2d`
+silence it for that many hours or days. The camera name is taken from the
+replied message. The deadline is stored at `HIK_CONFIG.SILENCED.<camera>`.
 
 Only messages from chat IDs listed in `TELEGRAM.CHAT_IDS` are processed.
 Messages not starting with `/` are silently ignored.

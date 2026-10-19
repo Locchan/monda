@@ -1,5 +1,6 @@
 import json
 import logging
+from datetime import datetime
 from typing import cast
 
 import redis as redis_lib
@@ -15,6 +16,19 @@ from monda.utils.misc import read_config
 from monda.utils.redis_client import get_redis_client, reset_redis_client
 
 logger: logging.Logger = get_logger()
+
+
+def camera_silenced(source: str, now: datetime | None = None) -> bool:
+    raw = (read_config().get("HIK_CONFIG", {}).get("SILENCED", {}) or {}).get(source)
+    if not isinstance(raw, str) or not raw:
+        return False
+    try:
+        until = datetime.fromisoformat(raw)
+    except ValueError:
+        return False
+    current = now or datetime.now(until.tzinfo)
+    return current < until
+
 
 # docs/hik.md
 class W_HikConsumer(Worker):
@@ -49,6 +63,9 @@ class W_HikConsumer(Worker):
         device_key = producer_cfg.get("DEVICE")
         if not device_key:
             logger.warning(f"No DEVICE config for producer '{event.source}', cannot capture.")
+            return
+        if camera_silenced(event.source):
+            logger.debug(f"Skipping silenced camera {event.source}.")
             return
         if J_HikAlertSnap.acquire(device_key):
             snap = J_HikAlertSnap(event.source, {

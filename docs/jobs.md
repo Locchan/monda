@@ -273,8 +273,9 @@ passes as the job instance). Point `HIK_DEVICE` at the NVR and set `CHANNEL`
 to that source camera's NVR playback track; the source camera itself does not
 need local storage.
 
-`/hik_sender` toggles `J_HikAlertSnap` only. Set
-`JOB_CONFIG.J_HikAlertClip.ENABLED` to `false` to turn clips off.
+`/hik_sender` toggles snaps and clips together. `/silence`, sent as a reply
+to one camera's alert, pauses that camera's snaps and clips until the
+deadline in `HIK_CONFIG.SILENCED`.
 
 ### Usage
 

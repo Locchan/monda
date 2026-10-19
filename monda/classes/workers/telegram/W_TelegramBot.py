@@ -1,6 +1,7 @@
 import json
+import re
 import shlex
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, NamedTuple
 from zoneinfo import ZoneInfo
 
@@ -263,20 +264,81 @@ def _cmd_trigger(args: str, message_date: int | float | None = None) -> str:
     return _start_job(resolved, overrides, message_date)
 
 
-def _cmd_hik_sender(_args: str) -> str:
-    current = (read_config()
-               .get("JOB_CONFIG", {})
-               .get("J_HikAlertSnap", {})
-               .get("ENABLED", True))
+_ALERT_JOBS = ("J_HikAlertSnap", "J_HikAlertClip")
+_SILENCE_RE = re.compile(r"^(\d+)\s*([hd])$", re.IGNORECASE)
 
-    desired = not current
-    set_config_entry("JOB_CONFIG/J_HikAlertSnap/ENABLED", desired)
-    action = "Enabled" if desired else "Disabled"
-    return f"{action} Hik sender job."
+
+def _alerts_enabled(config: dict) -> bool:
+    jobs = config.get("JOB_CONFIG", {})
+    return any(jobs.get(name, {}).get("ENABLED", True) for name in _ALERT_JOBS)
+
+
+def _cmd_hik_sender(_args: str) -> str:
+    desired = not _alerts_enabled(read_config())
+    for name in _ALERT_JOBS:
+        set_config_entry(f"JOB_CONFIG/{name}/ENABLED", desired)
+    action = "Enabled" if desired else "Silenced"
+    return f"{action} Hik snaps and clips."
+
+
+def _parse_silence(args: str) -> timedelta | str:
+    text = args.strip()
+    if not text:
+        return timedelta(hours=8)
+    match = _SILENCE_RE.fullmatch(text)
+    if match is None:
+        return "Use /silence, /silence 12h, or /silence 2d."
+    count = int(match.group(1))
+    if count < 1:
+        return "Duration must be at least 1."
+    if match.group(2).lower() == "h":
+        return timedelta(hours=count)
+    return timedelta(days=count)
+
+
+def _reply_text(reply: dict | None) -> str:
+    if not isinstance(reply, dict):
+        return ""
+    return "\n".join(part for part in (reply.get("text") or "", reply.get("caption") or "") if part)
+
+
+def _camera_from_reply(reply: dict | None) -> str | None:
+    text = _reply_text(reply)
+    if not text:
+        return None
+    producers = read_config().get("WORKER_CONFIG", {}).get("W_HikProducer", {})
+    if not isinstance(producers, dict):
+        return None
+    names = sorted((name for name in producers if isinstance(name, str)), key=len, reverse=True)
+    for name in names:
+        if re.search(rf"(?<![\w]){re.escape(name)}(?![\w])", text):
+            return name
+    return None
+
+
+def _cmd_silence(args: str, reply: dict | None = None) -> str:
+    duration = _parse_silence(args)
+    if isinstance(duration, str):
+        return duration
+    if not _reply_text(reply):
+        return "Reply to a camera alert with /silence."
+    camera = _camera_from_reply(reply)
+    if camera is None:
+        return "Could not tell which camera that alert is from."
+    name = read_config().get("TZ", "UTC")
+    try:
+        tz = ZoneInfo(name)
+    except Exception:
+        tz = ZoneInfo("UTC")
+    until = datetime.now(tz) + duration
+    set_config_entry(f"HIK_CONFIG/SILENCED/{camera}", until.isoformat())
+    logger.info(f"Silenced {camera} snaps and clips until {until.isoformat()}.")
+    return f"Silenced {camera} snaps and clips until {until.strftime('%Y-%m-%d %H:%M')}."
 
 
 COMMANDS = {
-    "/hik_sender": (_cmd_hik_sender, "Toggle Hik snapshot alerts on/off"),
+    "/hik_sender": (_cmd_hik_sender, "Toggle Hik snaps and clips on/off"),
+    "/silence": (_cmd_silence, "Reply to an alert: silence that camera (/silence, 12h, 2d)"),
     "/trigger": (_cmd_trigger, "List enabled jobs, or run one with KEY=VALUE overrides"),
     "/help": (None, "Show available commands"),
 }
@@ -290,7 +352,9 @@ def _cmd_help(_args: str) -> str:
 COMMANDS["/help"] = (_cmd_help, COMMANDS["/help"][1])
 
 
-def parse_command(chat_id: int, message_text: str, message_date: int | float | None = None) -> str | None:
+def parse_command(
+    chat_id: int, message_text: str, message_date: int | float | None = None, reply_to: dict | None = None,
+) -> str | None:
     parts = message_text.split(maxsplit=1)
     cmd = parts[0].split("@")[0]
     args = parts[1] if len(parts) > 1 else ""
@@ -301,6 +365,8 @@ def parse_command(chat_id: int, message_text: str, message_date: int | float | N
     handler, _ = entry
     if handler is _cmd_trigger:
         return handler(args, message_date)
+    if handler is _cmd_silence:
+        return handler(args, reply_to)
     return handler(args)
 
 
@@ -391,6 +457,6 @@ class W_TelegramBot(Worker):
             if not text.startswith("/"):
                 continue
 
-            result = parse_command(chat_id, text, message.get("date"))
+            result = parse_command(chat_id, text, message.get("date"), message.get("reply_to_message"))
             if isinstance(result, str):
                 self._send_message(chat_id, result)
