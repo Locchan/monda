@@ -265,8 +265,11 @@ The period is read from `JOB_CONFIG.J_HikAlertClip.ALERT_PERIOD` (default
 the job. This limit is independent of `J_HikAlertSnap`.
 
 `W_HikConsumer` calls `acquire()` automatically when it receives a VMD event.
-Per-camera `BEFORE_SEC` / `AFTER_SEC` / `CHANNEL` live under the producer
-instance name (the same name the consumer passes as the job instance).
+For alert-triggered clips, `HIK_DEVICE`, `CHANNEL`, `BEFORE_SEC`, and
+`AFTER_SEC` live under the producer instance name (the same name the consumer
+passes as the job instance). Point `HIK_DEVICE` at the NVR and set `CHANNEL`
+to that source camera's NVR playback track; the source camera itself does not
+need local storage.
 
 `/hik_sender` toggles `J_HikAlertSnap` only. Set
 `JOB_CONFIG.J_HikAlertClip.ENABLED` to `false` to turn clips off.

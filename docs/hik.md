@@ -135,8 +135,12 @@ event, it resolves the source producer's `DEVICE` from `WORKER_CONFIG` and
 fires two jobs, each with its own rate limit:
 
 - `J_HikAlertSnap` — one snapshot per `ALERT_PERIOD` seconds per camera
+  using the source camera device
   (see [jobs.md](jobs.md#j_hikalertsnap)).
 - `J_HikAlertClip` — one video clip per its own `ALERT_PERIOD` (default 60s).
+  Its `HIK_DEVICE` and `CHANNEL` come from
+  `JOB_CONFIG.J_HikAlertClip.<producer_name>`, allowing camera alerts to play
+  recordings from the corresponding NVR channel.
   The clip covers `BEFORE_SEC` before the alert and `AFTER_SEC` after it.
   The job waits until 10s after the playback end, then records
   the window over RTSP (`RTSP_PORT` on the device). The consumer does not block on that wait

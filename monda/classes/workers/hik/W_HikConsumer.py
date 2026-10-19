@@ -59,7 +59,6 @@ class W_HikConsumer(Worker):
                 snap.run()
         if J_HikAlertClip.acquire(device_key):
             clip = J_HikAlertClip(event.source, {
-                "HIK_DEVICE": device_key,
                 "MESSAGE": f"Motion clip: {event.source}",
                 "ALERT_TIME": event.date.isoformat(),
             })
