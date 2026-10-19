@@ -11,7 +11,7 @@ from monda.classes.base.Worker import Worker
 from monda.classes.jobs import ENABLED_JOBS
 from monda.config_schema import JOB_SCHEMAS, UNSET, validate
 from monda.utils.logger import get_logger
-from monda.utils.misc import read_config, set_config_entry
+from monda.utils.misc import delete_config_entry, read_config, set_config_entry
 
 logger = get_logger()
 
@@ -336,9 +336,35 @@ def _cmd_silence(args: str, reply: dict | None = None) -> str:
     return f"Silenced {camera} snaps and clips until {until.strftime('%Y-%m-%d %H:%M')}."
 
 
+def _cmd_unsilence(_args: str, reply: dict | None = None) -> str:
+    if not _reply_text(reply):
+        return "Reply to a camera alert or a silence message with /unsilence."
+    camera = _camera_from_reply(reply)
+    if camera is None:
+        return "Could not tell which camera that message is from."
+    silenced = read_config().get("HIK_CONFIG", {}).get("SILENCED", {})
+    if not isinstance(silenced, dict) or camera not in silenced:
+        return f"{camera} is not silenced."
+    delete_config_entry(f"HIK_CONFIG/SILENCED/{camera}")
+    logger.info(f"Unsilenced {camera} snaps and clips.")
+    return f"Unsilenced {camera} snaps and clips."
+
+
+def _cmd_unsilence_all(_args: str) -> str:
+    silenced = read_config().get("HIK_CONFIG", {}).get("SILENCED", {})
+    if not isinstance(silenced, dict) or not silenced:
+        return "No cameras are silenced."
+    names = sorted(name for name in silenced if isinstance(name, str))
+    delete_config_entry("HIK_CONFIG/SILENCED")
+    logger.info(f"Unsilenced {', '.join(names)}.")
+    return "Unsilenced " + ", ".join(names) + "."
+
+
 COMMANDS = {
     "/hik_sender": (_cmd_hik_sender, "Toggle Hik snaps and clips on/off"),
     "/silence": (_cmd_silence, "Reply to an alert: silence that camera (/silence, 12h, 2d)"),
+    "/unsilence": (_cmd_unsilence, "Reply to an alert or silence message to restore that camera"),
+    "/unsilence_all": (_cmd_unsilence_all, "Restore snaps and clips for every silenced camera"),
     "/trigger": (_cmd_trigger, "List enabled jobs, or run one with KEY=VALUE overrides"),
     "/help": (None, "Show available commands"),
 }
@@ -365,7 +391,7 @@ def parse_command(
     handler, _ = entry
     if handler is _cmd_trigger:
         return handler(args, message_date)
-    if handler is _cmd_silence:
+    if handler in (_cmd_silence, _cmd_unsilence):
         return handler(args, reply_to)
     return handler(args)
 

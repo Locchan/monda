@@ -275,7 +275,8 @@ need local storage.
 
 `/hik_sender` toggles snaps and clips together. `/silence`, sent as a reply
 to one camera's alert, pauses that camera's snaps and clips until the
-deadline in `HIK_CONFIG.SILENCED`.
+deadline in `HIK_CONFIG.SILENCED`. `/unsilence` (reply to the alert or the
+silence confirmation) and `/unsilence_all` remove those deadlines.
 
 ### Usage
 

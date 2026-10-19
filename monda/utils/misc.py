@@ -98,6 +98,19 @@ def _deep_merge(base: dict, override: dict) -> dict:
     return result
 
 
+def delete_config_entry(path: str) -> None:
+    config = read_config()
+    keys = path.split("/")
+    parent = config
+    for key in keys[:-1]:
+        if not isinstance(parent, dict) or key not in parent:
+            return
+        parent = parent[key]
+    if isinstance(parent, dict):
+        parent.pop(keys[-1], None)
+    write_config(config)
+
+
 def set_config_entry(path: str, value: Any) -> None:
     config = read_config()
     keys = path.split("/")

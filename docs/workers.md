@@ -161,6 +161,8 @@ Polls for Telegram messages and dispatches bot commands. Requires the
 |----------------|------------------------------------------------|
 | `/hik_sender`  | Toggle Hik snaps and clips on or off.          |
 | `/silence`     | Reply to an alert to silence that camera.      |
+| `/unsilence`   | Reply to an alert or silence message to restore that camera. |
+| `/unsilence_all` | Restore every silenced camera.               |
 | `/trigger`     | List enabled jobs, or run one (see below).     |
 | `/help`        | List all available commands.                   |
 
@@ -188,6 +190,8 @@ argument.
 that camera's snaps and clips for 8 hours. `/silence 12h` and `/silence 2d`
 silence it for that many hours or days. The camera name is taken from the
 replied message. The deadline is stored at `HIK_CONFIG.SILENCED.<camera>`.
+`/unsilence` is a reply to that alert or to the silence confirmation, and
+removes that camera. `/unsilence_all` removes every entry.
 
 Only messages from chat IDs listed in `TELEGRAM.CHAT_IDS` are processed.
 Messages not starting with `/` are silently ignored.
