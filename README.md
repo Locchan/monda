@@ -71,9 +71,10 @@ Config directory is resolved in this order:
 Workers are decoupled from each other. The Hikvision pipeline uses a shared
 bounded `deque` (`HikEvents`) so a producer worker can hand events to consumer
 workers without tight coupling. When the consumer receives a VMD (motion
-detection) event it automatically fires a `J_HikAlertSnap` job that grabs a
-camera snapshot and sends it as an LED alert (rate-limited per camera).
-Unknown event types are forwarded to LED as well.
+detection) event it fires a `J_HikAlertSnap` job (a snapshot sent as an LED
+alert) and a `J_HikAlertClip` job (a recorded clip from before and after the
+alert, also sent as an LED alert). Each is rate-limited per camera. Unknown
+event types are forwarded to LED as well.
 
 ## Documentation
 

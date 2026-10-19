@@ -160,7 +160,26 @@ Polls for Telegram messages and dispatches bot commands. Requires the
 | Command        | Description                                    |
 |----------------|------------------------------------------------|
 | `/hik_sender`  | Toggle `J_HikAlertSnap` on or off (no arguments). |
+| `/trigger`     | List enabled jobs, or run one (see below).     |
 | `/help`        | List all available commands.                   |
+
+`/trigger` with no arguments replies with the jobs configured on this daemon
+whose class is enabled (`JOB_CONFIG.<class>.ENABLED` is not `false`). Each
+line is `JobClass/instance`, the same key `monda status` uses. The list
+includes `W_Cron` jobs and `JOB_CONFIG` instances.
+
+`/trigger J_HikSnap/snap_reg_dacha` runs that job immediately, with the same
+params cron would pass. A bare instance name works when only one enabled job
+uses it (`/trigger snap_reg_dacha`). A disabled class is rejected. A missing
+required field is reported together with that job's schema (required and
+optional arguments, types, and defaults).
+
+Further `KEY=VALUE` arguments override that job's config for this run only.
+Values are parsed as the field's type (`BEFORE_SEC=15` is an integer). Quote
+a value that contains spaces: `MESSAGE="Front gate"`. Unknown keys are
+rejected. `/trigger` of `J_HikAlertClip` uses the Telegram message time,
+converted into config `TZ`, as the alert time, so `ALERT_TIME` is not an
+argument.
 
 Only messages from chat IDs listed in `TELEGRAM.CHAT_IDS` are processed.
 Messages not starting with `/` are silently ignored.

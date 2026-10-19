@@ -6,6 +6,7 @@ import redis as redis_lib
 
 from monda.classes.base.Worker import Worker
 from monda.classes.base.hik.HikEvent import HikEvent
+from monda.classes.jobs.hik.J_HikAlertClip import J_HikAlertClip
 from monda.classes.jobs.hik.J_HikAlertSnap import J_HikAlertSnap
 from monda.classes.workers import HIK_EVENTS_TOPIC, HikEvents, is_ignored_event
 from monda.utils.led_alert import send_alert
@@ -47,16 +48,23 @@ class W_HikConsumer(Worker):
                         .get(event.source, {}))
         device_key = producer_cfg.get("DEVICE")
         if not device_key:
-            logger.warning(f"No DEVICE config for producer '{event.source}', cannot snapshot.")
+            logger.warning(f"No DEVICE config for producer '{event.source}', cannot capture.")
             return
-        if not J_HikAlertSnap.acquire(device_key):
-            return
-        job = J_HikAlertSnap(event.source, {
-            "HIK_DEVICE": device_key,
-            "MESSAGE": f"Motion detected: {event.source}",
-        })
-        if job.initialize():
-            job.run()
+        if J_HikAlertSnap.acquire(device_key):
+            snap = J_HikAlertSnap(event.source, {
+                "HIK_DEVICE": device_key,
+                "MESSAGE": f"Motion detected: {event.source}",
+            })
+            if snap.initialize():
+                snap.run()
+        if J_HikAlertClip.acquire(device_key):
+            clip = J_HikAlertClip(event.source, {
+                "HIK_DEVICE": device_key,
+                "MESSAGE": f"Motion clip: {event.source}",
+                "ALERT_TIME": event.date.isoformat(),
+            })
+            if clip.initialize():
+                clip.run()
 
     def _initialize(self) -> bool:
         self._use_redis: bool = self.config.get("USE_REDIS", False)

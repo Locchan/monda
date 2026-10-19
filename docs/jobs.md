@@ -164,6 +164,11 @@ If the caller needs to know when the job finishes (rare — Jobs are designed
 for fire-and-forget), keep the returned Thread and `join()` it later. The
 common path is to simply discard the return value.
 
+The Telegram bot can start a configured job the same way. `/trigger` lists
+enabled jobs; `/trigger J_SomeJob/nightly KEY=VALUE` runs that one, with the
+extra arguments overriding config for that run. See
+[workers.md](workers.md#w_telegrambot).
+
 ## `J_HikAlertSnap`
 
 Grabs a snapshot from a Hikvision camera and sends it as an LED alert.
@@ -201,6 +206,87 @@ from monda.classes.jobs.hik.J_HikAlertSnap import J_HikAlertSnap
 
 if J_HikAlertSnap.acquire("cam_front"):
     job = J_HikAlertSnap("front_cam", {"HIK_DEVICE": "cam_front", "MESSAGE": "Motion"})
+    if job.initialize():
+        job.run()
+```
+
+## `J_HikAlertClip`
+
+Downloads a recorded clip from a Hikvision camera or NVR and sends it as an
+LED alert. The clip spans `BEFORE_SEC` seconds before the alert and
+`AFTER_SEC` seconds after it. Playback asks for 8 more seconds so the last
+keyframe is included. The job then sleeps until 10 seconds after that
+playback end, because the NVR rejects a range it has not indexed yet. The
+sleep runs in the job thread; the caller does not block.
+
+The camera or NVR must actually be recording (SD card, NVR disk). The
+download asks the device for that time range; it does not record a live
+stream itself.
+
+| Key          | Type   | Required | Default | Source  | Purpose                                                        |
+|--------------|--------|----------|---------|---------|----------------------------------------------------------------|
+| `HIK_DEVICE` | string | yes      | —       | either  | Name of an entry under `HIK_CONFIG.DEVICES`.                   |
+| `MESSAGE`    | string | yes      | —       | runtime | Alert text forwarded to the LED integration.                   |
+| `BEFORE_SEC` | int    | no       | `10`    | either  | Seconds of footage to include before the alert.                |
+| `AFTER_SEC`  | int    | no       | `10`    | either  | Seconds after the alert to include. The job waits this long.   |
+| `CHANNEL`    | string | no       | `"101"` | either  | Playback track id. Same numbering as snapshots (101 = camera 1 main). |
+
+`BEFORE_SEC` and `AFTER_SEC` must be `>= 0` and cannot both be `0`.
+
+The alert time is not a config field, so `monda configure` does not ask for
+it and `/trigger` does not accept it. `W_HikConsumer` passes the event
+timestamp. `/trigger` uses the Telegram message time, converted into config
+`TZ`. Other callers pass `ALERT_TIME` in the runtime dict as ISO-8601. A
+value without a timezone is read as config `TZ`; a value with one is
+converted to it.
+
+The job opens an RTSP playback URL on the device's `RTSP_PORT` (default
+`554`):
+
+`rtsp://<user>:<pass>@<ADDRESS>:<RTSP_PORT>/Streaming/tracks/<CHANNEL>/?starttime=…&endtime=…`
+
+Times are the config `TZ` wall clock, written as `YYYYMMDDTHHMMSSZ` because
+that is the form the NVR's playback URL uses. The range is widened by 8 seconds on each
+side, and playback starts on the keyframe at or before `starttime`, so every
+second between the times sent to the job is inside the file. `ffmpeg` copies
+that stream to a temporary `.mp4` and hands it to `send_alert` with
+`target="dacha_alerts"`. `ffmpeg` and `ffprobe` must be on `PATH`.
+
+The NVR sometimes stops sending before `endtime`. A clip shorter than the
+requested window plus 8 seconds cannot reach the end time, so the job
+discards it and retries, up to 4 attempts 5 seconds apart. After `endtime`
+the NVR goes silent; `ffmpeg` closes the file after 8 seconds without data.
+
+### Rate limiting
+
+`J_HikAlertClip` can fire at most once per `ALERT_PERIOD` seconds per camera.
+The period is read from `JOB_CONFIG.J_HikAlertClip.ALERT_PERIOD` (default
+`60`). Callers must check `J_HikAlertClip.acquire(device_key)` before creating
+the job. This limit is independent of `J_HikAlertSnap`.
+
+`W_HikConsumer` calls `acquire()` automatically when it receives a VMD event.
+Per-camera `BEFORE_SEC` / `AFTER_SEC` / `CHANNEL` live under the producer
+instance name (the same name the consumer passes as the job instance).
+
+`/hik_sender` toggles `J_HikAlertSnap` only. Set
+`JOB_CONFIG.J_HikAlertClip.ENABLED` to `false` to turn clips off.
+
+### Usage
+
+`W_HikConsumer` fires this job automatically on VMD events, alongside
+`J_HikAlertSnap`. Manual usage:
+
+```python
+from monda.classes.jobs.hik.J_HikAlertClip import J_HikAlertClip
+
+if J_HikAlertClip.acquire("cam_front"):
+    job = J_HikAlertClip("front_cam", {
+        "HIK_DEVICE": "cam_front",
+        "MESSAGE": "Motion clip: front_cam",
+        "ALERT_TIME": "2026-10-14T21:05:00+03:00",
+        "BEFORE_SEC": 10,
+        "AFTER_SEC": 15,
+    })
     if job.initialize():
         job.run()
 ```

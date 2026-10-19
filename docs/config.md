@@ -179,7 +179,8 @@ selection menu automatically.
 |---------------|--------|----------|----------|--------------------------------------------------|
 | `ADDRESS`     | string | yes      | —        | Device IP or hostname.                           |
 | `CREDENTIALS` | string | yes      | —        | Name of an entry under `HIK_CONFIG.CREDENTIALS`. |
-| `PORT`        | string | no       | `"80"`   | Device port.                                     |
+| `PORT`        | string | no       | `"80"`   | HTTP port for ISAPI (alert stream, snapshots).   |
+| `RTSP_PORT`   | string | no       | `"554"`  | RTSP port. `J_HikAlertClip` plays recordings here. |
 | `PROTOCOL`    | string | no       | `"http"` | `http` or `https`.                               |
 
 ## `REDIS` (optional)
@@ -314,6 +315,11 @@ booleans are unquoted, arrays use `[...]`.
       "ENABLED": true,
       "ALERT_PERIOD": 15,
       "reg_dacha": { "HIK_DEVICE": "reg_dacha", "CHANNEL": 101 }
+    },
+    "J_HikAlertClip": {
+      "ENABLED": true,
+      "ALERT_PERIOD": 60,
+      "reg_dacha": { "HIK_DEVICE": "reg_dacha", "CHANNEL": "101", "BEFORE_SEC": 10, "AFTER_SEC": 15 }
     }
   }
 }

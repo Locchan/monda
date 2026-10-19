@@ -128,12 +128,19 @@ Unknown event types are forwarded to LED as alerts. Known types:
 | Event type  | Meaning                            | Handler                              |
 |-------------|------------------------------------|--------------------------------------|
 | `videoloss` | Video signal lost / camera offline | no action (suppresses unknown alert) |
-| `VMD`       | Motion detection                   | triggers `J_HikAlertSnap` job        |
+| `VMD`       | Motion detection                   | triggers `J_HikAlertSnap` and `J_HikAlertClip` |
 
 **VMD handling:** when `process_event` receives a `VMD` (motion detection)
 event, it resolves the source producer's `DEVICE` from `WORKER_CONFIG` and
-fires a `J_HikAlertSnap` job — rate-limited to one snapshot per
-`ALERT_PERIOD` seconds per camera (see [jobs.md](jobs.md#j_hikalertsnap)).
+fires two jobs, each with its own rate limit:
+
+- `J_HikAlertSnap` — one snapshot per `ALERT_PERIOD` seconds per camera
+  (see [jobs.md](jobs.md#j_hikalertsnap)).
+- `J_HikAlertClip` — one video clip per its own `ALERT_PERIOD` (default 60s).
+  The clip covers `BEFORE_SEC` before the alert and `AFTER_SEC` after it.
+  The job waits until 10s after the playback end, then records
+  the window over RTSP (`RTSP_PORT` on the device). The consumer does not block on that wait
+  (see [jobs.md](jobs.md#j_hikalertclip)).
 
 ## Threading note
 

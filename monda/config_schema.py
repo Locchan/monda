@@ -79,6 +79,7 @@ HIK_DEVICE_FIELDS: list[Field] = [
     Field("CREDENTIALS", "Credentials key (from CREDENTIALS section)", "str"),
     Field("PROTOCOL",    "Protocol (http/https)",            "str", "http", optional=True),
     Field("PORT",        "HTTP port",                        "str", "80",   optional=True),
+    Field("RTSP_PORT",   "RTSP playback port",               "str", "554",  optional=True),
 ]
 
 HIK_CRED_FIELDS: list[Field] = [
@@ -215,7 +216,7 @@ WORKER_SCHEMAS: dict[str, WorkerSchema] = {
         ],
     ),
     "W_HikConsumer": WorkerSchema(
-        "Process Hikvision motion events and trigger snapshot jobs",
+        "Process Hikvision motion events and trigger snapshot and clip jobs",
         [
             Field("INTERVAL",  "Poll interval (seconds)",                    "int", 1),
             Field("USE_REDIS", "Consume events from Redis instead of RAM",   "bool", False, optional=True),
@@ -233,6 +234,17 @@ class JobSchema:
 
 
 JOB_SCHEMAS: dict[str, JobSchema] = {
+    "J_HikAlertClip": JobSchema(
+        "Download a Hikvision clip around an alert and send it as an LED alert",
+        [
+            Field("HIK_DEVICE",  "Device key from HIK_CONFIG.DEVICES", "str"),
+            Field("MESSAGE",     "Alert message text",                  "str"),
+            Field("BEFORE_SEC",  "Seconds of footage before the alert", "int", 10),
+            Field("AFTER_SEC",   "Seconds of footage after the alert",  "int", 10),
+            Field("CHANNEL",     "ISAPI playback track id",             "str", "101", optional=True),
+            _ENABLED_FIELD,
+        ],
+    ),
     "J_HikAlertSnap": JobSchema(
         "Capture a Hikvision snapshot and send it as an LED alert",
         [
