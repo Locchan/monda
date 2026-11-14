@@ -92,7 +92,7 @@ LOG_DIR/
   workers/
     W_Cron_main.log        # one file per worker thread
   jobs/
-    J_snap_reg_dacha.log   # one file per job thread
+    J_snap_nvr1.log   # one file per job thread
 ```
 
 Stdout still receives INFO-level (or DEBUG when `DEBUG` is enabled) logs.
@@ -145,7 +145,7 @@ selection menu automatically.
 | `DEBUG`         | int    | no       | `0`     | If truthy, enables `DEBUG`-level logging and prints the loaded config.   |
 | `LOG_DIR`       | string | no       | `"/var/log/monda"` | Directory for log files. Each worker/job gets its own debug log file under `workers/` and `jobs/`. General daemon logs go to `general.log`. |
 | `LOG_FILE`      | string | no       | —       | **Deprecated.** If set without `LOG_DIR`, logs are written to `<dirname>/monda/`. |
-| `TZ`            | string | no       | `"UTC"` | IANA timezone applied to parsed event timestamps (e.g. `Europe/Minsk`).  |
+| `TZ`            | string | no       | `"UTC"` | IANA timezone applied to parsed event timestamps (e.g. `America/New_York`).  |
 | `HIK_CONFIG`    | object | no       | —       | Hikvision subsystem settings. See below.                                 |
 | `REDIS`         | object | no       | —       | Single Redis endpoint. Required if any Hik worker is enabled.            |
 | `LED_TARGETS`   | object | no       | —       | Named led outbox targets. See below.                                     |
@@ -206,7 +206,7 @@ missing or has no `BASEDIR`, alerts fall back to stderr.
 ```json
 "LED_TARGETS": {
   "general":      { "BASEDIR": "/opt/led/messages/general" },
-  "dacha_alerts": { "BASEDIR": "/opt/led/messages/dacha" }
+  "camera_alerts": { "BASEDIR": "/opt/led/messages/camera" }
 }
 ```
 
@@ -214,7 +214,7 @@ missing or has no `BASEDIR`, alerts fall back to stderr.
 |-----------|--------|----------|----------------------------------------------|
 | `BASEDIR` | string | yes      | Directory `led` watches. Created if missing. |
 
-In code, pass the target name: `send_alert("msg", target="dacha_alerts", files=[...])`.
+In code, pass the target name: `send_alert("msg", target="camera_alerts", files=[...])`.
 The default target is `"general"`. See [led.md](led.md) for the wire format.
 
 ## `TELEGRAM` (optional)
@@ -285,20 +285,20 @@ booleans are unquoted, arrays use `[...]`.
   "NAME": "monda",
   "DEBUG": 0,
   "LOG_DIR": "/var/log/monda",
-  "TZ": "Europe/Minsk",
+  "TZ": "UTC",
   "CONFIG_WATCH_INTERVAL": 5,
   "LED_TARGETS": {
     "general":      { "BASEDIR": "/var/lib/led/general" },
-    "dacha_alerts": { "BASEDIR": "/var/lib/led/dacha" }
+    "camera_alerts": { "BASEDIR": "/var/lib/led/camera" }
   },
   "HIK_CONFIG": {
     "EVENT_DEQUE_MAX_SIZE": 30,
     "IGNORED_EVENTS": { "videoloss": ["inactive"] },
     "CREDENTIALS": {
-      "DACHA": { "USERNAME": "admin", "PASSWORD": "secret" }
+      "SITE": { "USERNAME": "admin", "PASSWORD": "secret" }
     },
     "DEVICES": {
-      "reg_dacha": { "ADDRESS": "10.71.1.128", "CREDENTIALS": "DACHA" }
+      "nvr1": { "ADDRESS": "192.0.2.20", "CREDENTIALS": "SITE" }
     }
   },
   "REDIS": { "HOST": "127.0.0.1", "PORT": 6379, "DB": 0, "PASSWORD": "redispass" },
@@ -307,22 +307,22 @@ booleans are unquoted, arrays use `[...]`.
     "CHAT_IDS": [12345678, 87654321]
   },
   "WORKER_CONFIG": {
-    "W_HikProducer": { "reg_dacha": { "DEVICE": "reg_dacha", "INTERVAL": 5 } },
+    "W_HikProducer": { "nvr1": { "DEVICE": "nvr1", "INTERVAL": 5 } },
     "W_HikConsumer": { "main": { "INTERVAL": 3 } },
     "W_TelegramBot": { "main": { "INTERVAL": 5 } },
     "W_Cron": {
       "main": {
         "INTERVAL": 5,
         "JOBS": {
-          "snap_reg_dacha": {
+          "snap_nvr1": {
             "SCHEDULE": "*/5 * * * *",
             "JOB_CLASS": "J_HikSnap",
-            "PARAMS": { "HIK_DEVICE": "reg_dacha", "DEST_DIR": "/var/lib/monda/snaps/reg_dacha", "CHANNEL": 101 }
+            "PARAMS": { "HIK_DEVICE": "nvr1", "DEST_DIR": "/var/lib/monda/snaps/nvr1", "CHANNEL": 101 }
           },
-          "arch_reg_dacha": {
+          "arch_nvr1": {
             "SCHEDULE": "0 * * * *",
             "JOB_CLASS": "J_HikSnapArch",
-            "PARAMS": { "SRC_DIR": "/var/lib/monda/snaps/reg_dacha", "DEST_DIR": "/mnt/nfs/archive/reg_dacha" }
+            "PARAMS": { "SRC_DIR": "/var/lib/monda/snaps/nvr1", "DEST_DIR": "/mnt/nfs/archive/nvr1" }
           }
         }
       }
@@ -332,12 +332,12 @@ booleans are unquoted, arrays use `[...]`.
     "J_HikAlertSnap": {
       "ENABLED": true,
       "ALERT_PERIOD": 15,
-      "reg_dacha": { "HIK_DEVICE": "reg_dacha", "CHANNEL": 101 }
+      "nvr1": { "HIK_DEVICE": "nvr1", "CHANNEL": 101 }
     },
     "J_HikAlertClip": {
       "ENABLED": true,
       "ALERT_PERIOD": 60,
-      "reg_dacha": { "HIK_DEVICE": "reg_dacha", "CHANNEL": "101", "BEFORE_SEC": 10, "AFTER_SEC": 15 }
+      "nvr1": { "HIK_DEVICE": "nvr1", "CHANNEL": "101", "BEFORE_SEC": 10, "AFTER_SEC": 15 }
     }
   }
 }

@@ -79,7 +79,9 @@ class W_HikProducer(Worker):
                 return
 
     def _stream_alerts(self, auth: HTTPDigestAuth, alert_url: str, username: str) -> Generator[str, None, None]:
-        with requests.get(alert_url, auth=auth, stream=True, timeout=None) as response:
+        # Finite connect timeout so a down camera fails fast; read stays open
+        # for the long-lived alert stream.
+        with requests.get(alert_url, auth=auth, stream=True, timeout=(10, None)) as response:
             if response.status_code != 200:
                 logger.warning(f"Could not connect to alert stream ({alert_url}) as '{username}': {response.status_code}")
                 return

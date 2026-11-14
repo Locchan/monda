@@ -1,0 +1,56 @@
+{
+  "NAME": "lab-site",
+  "DEBUG": false,
+  "TZ": "UTC",
+  "CONFIG_WATCH_INTERVAL": 5,
+  "LED_TARGETS": {
+    "general": { "BASEDIR": "/tmp/monda-test-led-general" }
+  },
+  "WORKER_CONFIG": {
+    "W_MondaStatus": {
+      "main": { "PORT": 7432, "INTERVAL": 10, "EDIT_MOTD": false }
+    },
+    "W_DockerWatcher": {
+      "main": { "INTERVAL": 60, "ALERT_TARGET": "general" }
+    },
+    "W_SystemdWatcher": {
+      "main": { "INTERVAL": 60, "ALERT_TARGET": "general" }
+    },
+    "W_SSHLoginWatcher": {
+      "main": { "INTERVAL": 10, "ALERT_TARGET": "general", "LOG_PATH": "/tmp/monda-test-auth.log" }
+    },
+    "W_BackupWatcherRaw": {
+      "main": {
+        "INTERVAL": 3600,
+        "ALERT_TARGET": "general",
+        "BACKUPS": {
+          "cam4": {
+            "PATH": "/tmp/monda-test-backups/cam4",
+            "EXPECTED_PERIOD_MINUTES": 1440,
+            "PERMITTED_LAG_MINUTES": 60
+          }
+        }
+      }
+    },
+    "W_BackupWatcherBorg": {
+      "main": {
+        "INTERVAL": 3600,
+        "ALERT_TARGET": "general",
+        "BACKUPS": {
+          "host_alpha": {
+            "PATH": "/tmp/monda-test-borg/host_alpha",
+            "EXPECTED_PERIOD_MINUTES": 1440,
+            "PERMITTED_LAG_MINUTES": 60
+          }
+        }
+      }
+    },
+    "W_MDWatcher": {
+      "main": { "INTERVAL": 30, "ALERT_TARGET": "general" }
+    },
+    "W_ZFSWatcher": {
+      "main": { "INTERVAL": 30, "ALERT_TARGET": "general" }
+    }
+  },
+  "JOB_CONFIG": {}
+}

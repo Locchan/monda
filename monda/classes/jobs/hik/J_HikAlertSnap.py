@@ -87,4 +87,4 @@ class J_HikAlertSnap(Job):
             os.unlink(tmp_path)
             raise
 
-        send_alert(message, target="dacha_alerts", files=[tmp_path])
+        send_alert(message, target="camera_alerts", files=[tmp_path])

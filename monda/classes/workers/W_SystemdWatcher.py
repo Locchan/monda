@@ -32,6 +32,7 @@ class W_SystemdWatcher(Worker):
              "--no-pager", "--plain", "--no-legend"],
             capture_output=True,
             text=True,
+            timeout=30,
         )
         if result.returncode != 0:
             raise RuntimeError(result.stderr.strip())

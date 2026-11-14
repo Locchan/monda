@@ -179,9 +179,9 @@ whose class is enabled (`JOB_CONFIG.<class>.ENABLED` is not `false`). Each
 line is `JobClass/instance`, the same key `monda status` uses. The list
 includes `W_Cron` jobs and `JOB_CONFIG` instances.
 
-`/trigger J_HikSnap/snap_reg_dacha` runs that job immediately, with the same
+`/trigger J_HikSnap/snap_nvr1` runs that job immediately, with the same
 params cron would pass. A bare instance name works when only one enabled job
-uses it (`/trigger snap_reg_dacha`). A disabled class is rejected. A missing
+uses it (`/trigger snap_nvr1`). A disabled class is rejected. A missing
 required field is reported together with that job's schema (required and
 optional arguments, types, and defaults).
 
@@ -333,8 +333,8 @@ Each entry under `BACKUPS`:
     "main": {
       "INTERVAL": 3600,
       "BACKUPS": {
-        "dacha_borg": {
-          "PATH": "/mnt/backup/borg/dacha",
+        "site_a_borg": {
+          "PATH": "/mnt/backup/borg/site_a",
           "EXPECTED_PERIOD_MINUTES": 1440,
           "PERMITTED_LAG_MINUTES": 120,
           "PASSPHRASE": "secret"

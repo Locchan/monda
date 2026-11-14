@@ -15,7 +15,7 @@ logger: logging.Logger = get_logger()
 def send_alert(message: str, target: str = "general", files: list[str] | None = None) -> None:
     """Hand an alert to the led integration if configured; otherwise stderr-fallback.
 
-    target: key under LED_TARGETS in config (e.g. "general", "dacha_alerts").
+    target: key under LED_TARGETS in config (e.g. "general", "camera_alerts").
     """
     files = files or []
     basedir = read_config().get("LED_TARGETS", {}).get(target, {}).get("BASEDIR")

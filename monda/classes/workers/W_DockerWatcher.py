@@ -35,6 +35,7 @@ class W_DockerWatcher(Worker):
             ["docker", "ps", "-a", "--format", "{{json .}}"],
             capture_output=True,
             text=True,
+            timeout=30,
         )
         if result.returncode != 0:
             raise RuntimeError(result.stderr.strip())
@@ -54,6 +55,7 @@ class W_DockerWatcher(Worker):
             ["docker", "inspect", "--format", "{{.Name}}\t{{.RestartCount}}", *names],
             capture_output=True,
             text=True,
+            timeout=30,
         )
         counts: dict[str, int] = {}
         for line in result.stdout.splitlines():

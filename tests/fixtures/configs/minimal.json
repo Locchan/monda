@@ -1,0 +1,11 @@
+{
+  "NAME": "monda-test",
+  "DEBUG": false,
+  "TZ": "UTC",
+  "CONFIG_WATCH_INTERVAL": 5,
+  "LED_TARGETS": {
+    "general": { "BASEDIR": "/tmp/monda-test-led-general" }
+  },
+  "WORKER_CONFIG": {},
+  "JOB_CONFIG": {}
+}

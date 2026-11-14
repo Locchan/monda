@@ -170,7 +170,7 @@ class J_HikAlertClip(Job):
             device["ADDRESS"], port, creds["USERNAME"], creds["PASSWORD"],
             channel, start, end, device_key,
         )
-        send_alert(self.config["MESSAGE"], target="dacha_alerts", files=[tmp_path])
+        send_alert(self.config["MESSAGE"], target="camera_alerts", files=[tmp_path])
 
     def _wait_until(self, end: datetime) -> None:
         delay = end.timestamp() - time.time()

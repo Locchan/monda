@@ -1,0 +1,18 @@
+---
+description: Keep the separate MonDa test suite updated with every code change
+alwaysApply: true
+---
+
+# Update tests with every change
+
+The project has a **separate** test suite under `tests/` (not inside `monda/`).
+
+Whenever you change MonDa behavior, schemas, workers, jobs, or shared utilities:
+
+1. Add or update tests in `tests/` in the **same change**.
+2. Cover both **positive** and **negative** paths when behavior changes.
+3. Prefer mocks for external systems (Docker, systemd, ZFS, Telegram, Hik HTTP/RTSP, Redis, SSH logs).
+4. Reuse or extend fixtures in `tests/fixtures/` (fully fictional `camera_site` / `lab_site` / `edge_site` configs; samples for mdstat/zpool). Never put real hostnames, IPs, tokens, or credentials in fixtures.
+5. Run `./tests/run_tests.sh` (or the relevant subset) before considering the change done. The suite defaults to pytest-xdist (`-n auto`); use `-n0` for serial debugging.
+
+Do not leave production code changes without corresponding test updates.

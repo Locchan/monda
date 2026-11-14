@@ -1,0 +1,11 @@
+  pool: zraid1
+ state: ONLINE
+config:
+
+	NAME                                          STATE     READ WRITE CKSUM
+	zraid1                                        ONLINE       0     0     0
+	  mirror-0                                    ONLINE       0     0     0
+	    ata-DISK_A                                ONLINE       0     0     0
+	    ata-DISK_B                                ONLINE       0     0     0
+
+errors: No known data errors

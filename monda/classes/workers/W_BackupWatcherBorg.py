@@ -47,6 +47,7 @@ class W_BackupWatcherBorg(Worker):
             capture_output=True,
             text=True,
             env=env,
+            timeout=60,
         )
         if result.returncode != 0:
             raise RuntimeError(result.stderr.strip())

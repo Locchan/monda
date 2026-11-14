@@ -1,0 +1,5 @@
+Personalities : [raid1] 
+md9 : inactive sda1[0](S)
+      1000 blocks
+
+unused devices: <none>

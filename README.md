@@ -76,6 +76,19 @@ alert) and a `J_HikAlertClip` job (a recorded clip from before and after the
 alert, also sent as an LED alert). Each is rate-limited per camera. Unknown
 event types are forwarded to LED as well.
 
+## Tests
+
+The suite lives in `tests/` (separate from the package). It creates its own
+venv, installs MonDa editable, and runs heavily mocked pytest coverage for
+workers, jobs, and abstractions:
+
+```bash
+./tests/run_tests.sh
+```
+
+See [tests/README.md](tests/README.md). Fixture configs are fully fictional
+(`camera_site`, `lab_site`, `edge_site`) — no real hostnames or addresses.
+
 ## Documentation
 
 - [docs/config.md](docs/config.md) — every config field, defaults, env vars.

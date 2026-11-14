@@ -70,6 +70,6 @@ See [config.md](config.md#led_targets-optional). Example:
 ```json
 "LED_TARGETS": {
   "general":      { "BASEDIR": "/var/lib/led/general" },
-  "dacha_alerts": { "BASEDIR": "/var/lib/led/dacha" }
+  "camera_alerts": { "BASEDIR": "/var/lib/led/camera" }
 }
 ```

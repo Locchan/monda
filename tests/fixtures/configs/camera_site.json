@@ -1,0 +1,103 @@
+{
+  "NAME": "camera-site",
+  "DEBUG": false,
+  "TZ": "UTC",
+  "CONFIG_WATCH_INTERVAL": 5,
+  "LED_TARGETS": {
+    "general": { "BASEDIR": "/tmp/monda-test-led-general" },
+    "camera_alerts": { "BASEDIR": "/tmp/monda-test-led-camera" }
+  },
+  "TELEGRAM": {
+    "BOT_TOKEN": "000000000:TEST_BOT_TOKEN_FOR_TESTS",
+    "CHAT_IDS": [111111111, 222222222]
+  },
+  "REDIS": {
+    "HOST": "127.0.0.1",
+    "PORT": 6379,
+    "DB": 0,
+    "PASSWORD": "test-redis-pass"
+  },
+  "HIK_CONFIG": {
+    "EVENT_DEQUE_MAX_SIZE": 2048,
+    "IGNORED_EVENTS": { "videoloss": ["inactive"] },
+    "CREDENTIALS": {
+      "SITE": { "USERNAME": "admin", "PASSWORD": "test-pass" },
+      "NVR": { "USERNAME": "admin", "PASSWORD": "test-pass" }
+    },
+    "DEVICES": {
+      "cam1": { "ADDRESS": "192.0.2.10", "CREDENTIALS": "SITE", "RTSP_PORT": "554" },
+      "cam2": { "ADDRESS": "192.0.2.11", "CREDENTIALS": "SITE", "RTSP_PORT": "554" },
+      "cam3": { "ADDRESS": "192.0.2.12", "CREDENTIALS": "SITE", "RTSP_PORT": "554" },
+      "cam4": { "ADDRESS": "192.0.2.13", "CREDENTIALS": "SITE", "RTSP_PORT": "554" },
+      "cam5": { "ADDRESS": "192.0.2.14", "CREDENTIALS": "SITE", "RTSP_PORT": "554" },
+      "nvr1": { "ADDRESS": "192.0.2.20", "CREDENTIALS": "NVR", "RTSP_PORT": "554" }
+    },
+    "SILENCED": {}
+  },
+  "WORKER_CONFIG": {
+    "W_HikProducer": {
+      "cam4": { "DEVICE": "cam4", "INTERVAL": 30 },
+      "nvr1": { "DEVICE": "nvr1", "INTERVAL": 30 }
+    },
+    "W_HikConsumer": {
+      "consumer": { "INTERVAL": 1 }
+    },
+    "W_TelegramBot": {
+      "monbot": { "INTERVAL": 5 }
+    },
+    "W_Cron": {
+      "main": {
+        "INTERVAL": 5,
+        "JOBS": {
+          "snap_cam4": {
+            "SCHEDULE": "*/15 * * * *",
+            "JOB_CLASS": "J_HikSnap",
+            "SILENT": true,
+            "PARAMS": {
+              "HIK_DEVICE": "cam4",
+              "DEST_DIR": "/tmp/monda-test-snaps/cam4"
+            }
+          },
+          "arch_cam4": {
+            "SCHEDULE": "0 6 * * *",
+            "JOB_CLASS": "J_HikSnapArch",
+            "PARAMS": {
+              "SRC_DIR": "/tmp/monda-test-snaps/cam4",
+              "DEST_DIR": "/tmp/monda-test-arch/cam4"
+            }
+          }
+        }
+      }
+    },
+    "W_MondaStatus": {
+      "main": { "PORT": 7432, "INTERVAL": 10, "EDIT_MOTD": false }
+    },
+    "W_SSHLoginWatcher": {
+      "main": { "INTERVAL": 10, "LOG_PATH": "/tmp/monda-test-auth.log" }
+    }
+  },
+  "JOB_CONFIG": {
+    "J_HikAlertSnap": { "ENABLED": false },
+    "J_HikAlertClip": {
+      "ENABLED": false,
+      "cam4": {
+        "HIK_DEVICE": "cam4",
+        "MESSAGE": "motion",
+        "BEFORE_SEC": 10,
+        "AFTER_SEC": 10
+      }
+    },
+    "J_HikSnap": {
+      "snap_cam4": {
+        "HIK_DEVICE": "cam4",
+        "DEST_DIR": "/tmp/monda-test-snaps/cam4"
+      }
+    },
+    "J_HikSnapArch": {
+      "arch_cam4": {
+        "SRC_DIR": "/tmp/monda-test-snaps/cam4",
+        "DEST_DIR": "/tmp/monda-test-arch/cam4"
+      }
+    }
+  }
+}

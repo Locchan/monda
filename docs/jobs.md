@@ -183,7 +183,7 @@ Snapshot endpoint: `<proto>://<address>:<port>/ISAPI/Streaming/channels/<CHANNEL
 with HTTP Digest auth from the device's credentials.
 
 The snapshot is saved as a temporary `.jpg`, then handed to `send_alert`
-with `target="dacha_alerts"`, which moves it into that target's `BASEDIR`
+with `target="camera_alerts"`, which moves it into that target's `BASEDIR`
 and writes the LED-format JSON descriptor.
 
 ### Rate limiting
@@ -251,7 +251,7 @@ that is the form the NVR's playback URL uses. The range is widened by 8 seconds 
 side, and playback starts on the keyframe at or before `starttime`, so every
 second between the times sent to the job is inside the file. `ffmpeg` copies
 that stream to a temporary `.mp4` and hands it to `send_alert` with
-`target="dacha_alerts"`. `ffmpeg` and `ffprobe` must be on `PATH`.
+`target="camera_alerts"`. `ffmpeg` and `ffprobe` must be on `PATH`.
 
 The NVR sometimes stops sending before `endtime`, or returns 400 until the
 range is old enough. A clip shorter than the requested window plus 8 seconds

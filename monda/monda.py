@@ -30,6 +30,36 @@ def _start_config_watcher() -> None:
     watcher.run()
 
 
+def _supervise_once(worker_threads: list) -> None:
+    """One pass over worker threads: resurrect dead / retry failed starts."""
+    logger = get_logger()
+    for i, (thread, worker_type, instance_name) in enumerate(worker_threads):
+        if thread is None or not thread.is_alive():
+            instance_config = (read_config()
+                               .get("WORKER_CONFIG", {})
+                               .get(worker_type, {})
+                               .get(instance_name))
+            if instance_config is None or not instance_config.get("ENABLED", True):
+                continue
+            config_reload = consume_config_reload(worker_type, instance_name)
+            if config_reload:
+                logger.info(
+                    f"Restarting worker after config change: {worker_type}/{instance_name}"
+                )
+            elif thread is None:
+                logger.warning(f"Retrying worker initialization: {worker_type}/{instance_name}")
+            else:
+                logger.warning(f"Resurrecting a dead worker: {thread.name}")
+            new_thread = start_worker_by_name(
+                worker_type, instance_name, config_reload=config_reload
+            )
+            if new_thread is not None:
+                worker_threads[i] = (new_thread, worker_type, instance_name)
+            else:
+                logger.error(f"Could not restart worker: {worker_type}/{instance_name}")
+        time.sleep(0.5)
+
+
 def _cmd_status() -> None:
     config = read_config()
     instances = config.get("WORKER_CONFIG", {}).get("W_MondaStatus", {})
@@ -93,31 +123,7 @@ def main() -> None:
         os._exit(1)
 
     while True:
-        for i, (thread, worker_type, instance_name) in enumerate(worker_threads):
-            if thread is None or not thread.is_alive():
-                instance_config = (read_config()
-                                   .get("WORKER_CONFIG", {})
-                                   .get(worker_type, {})
-                                   .get(instance_name))
-                if instance_config is None or not instance_config.get("ENABLED", True):
-                    continue
-                config_reload = consume_config_reload(worker_type, instance_name)
-                if config_reload:
-                    logger.info(
-                        f"Restarting worker after config change: {worker_type}/{instance_name}"
-                    )
-                elif thread is None:
-                    logger.warning(f"Retrying worker initialization: {worker_type}/{instance_name}")
-                else:
-                    logger.warning(f"Resurrecting a dead worker: {thread.name}")
-                new_thread = start_worker_by_name(
-                    worker_type, instance_name, config_reload=config_reload
-                )
-                if new_thread is not None:
-                    worker_threads[i] = (new_thread, worker_type, instance_name)
-                else:
-                    logger.error(f"Could not restart worker: {worker_type}/{instance_name}")
-            time.sleep(0.5)
+        _supervise_once(worker_threads)
         time.sleep(5)
 
 

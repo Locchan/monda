@@ -1,0 +1,21 @@
+{
+  "NAME": "edge-site",
+  "DEBUG": false,
+  "TZ": "UTC",
+  "CONFIG_WATCH_INTERVAL": 5,
+  "LED_TARGETS": {
+    "general": { "BASEDIR": "/tmp/monda-test-led-general" }
+  },
+  "WORKER_CONFIG": {
+    "W_MondaStatus": {
+      "main": { "PORT": 7432, "INTERVAL": 10, "EDIT_MOTD": false, "ENABLED": true }
+    },
+    "W_SSHLoginWatcher": {
+      "main": { "INTERVAL": 10, "LOG_PATH": "/tmp/monda-test-auth.log" }
+    },
+    "W_SystemdWatcher": {
+      "main": { "INTERVAL": 60, "ALERT_TARGET": "general" }
+    }
+  },
+  "JOB_CONFIG": {}
+}

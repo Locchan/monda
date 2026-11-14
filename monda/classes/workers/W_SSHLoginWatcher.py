@@ -109,12 +109,17 @@ class W_SSHLoginWatcher(Worker):
             tempfile.gettempdir(),
             f"monda_ssh_cursor_{self._instance_name}",
         )
-        r = subprocess.run(
-            ["journalctl", "-u", "ssh", "-u", "sshd",
-             "--output=json", "--no-pager", "-n", "0",
-             f"--cursor-file={self._cursor_file}"],
-            capture_output=True,
-        )
+        try:
+            r = subprocess.run(
+                ["journalctl", "-u", "ssh", "-u", "sshd",
+                 "--output=json", "--no-pager", "-n", "0",
+                 f"--cursor-file={self._cursor_file}"],
+                capture_output=True,
+                timeout=30,
+            )
+        except (OSError, subprocess.TimeoutExpired) as e:
+            logger.error(f"journalctl is not available or timed out: {e}")
+            return False
         if r.returncode != 0:
             logger.error("journalctl is not available or failed. Cannot watch SSH logins.")
             return False
@@ -145,13 +150,18 @@ class W_SSHLoginWatcher(Worker):
         return [r for line in chunk.splitlines() if (r := self._parser(line))]
 
     def _read_jctl_events(self) -> list[tuple[str, str, str]]:
-        result = subprocess.run(
-            ["journalctl", "-u", "ssh", "-u", "sshd",
-             "--output=json", "--no-pager",
-             f"--cursor-file={self._cursor_file}"],
-            capture_output=True,
-            text=True,
-        )
+        try:
+            result = subprocess.run(
+                ["journalctl", "-u", "ssh", "-u", "sshd",
+                 "--output=json", "--no-pager",
+                 f"--cursor-file={self._cursor_file}"],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+        except (OSError, subprocess.TimeoutExpired) as e:
+            logger.warning(f"journalctl read failed: {e}")
+            return []
         events = []
         for line in result.stdout.splitlines():
             line = line.strip()

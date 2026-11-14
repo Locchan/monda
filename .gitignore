@@ -5,4 +5,5 @@ __pycache__/
 .idea/
 config/config.json
 dist/
-build/
+build/tests/.venv/
+tests/.pytest_cache/

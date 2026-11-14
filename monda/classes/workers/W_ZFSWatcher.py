@@ -60,6 +60,7 @@ class W_ZFSWatcher(Worker):
             ["zpool", "status"],
             capture_output=True,
             text=True,
+            timeout=30,
         )
         if result.returncode != 0:
             err = result.stderr.strip() or result.stdout.strip() or f"exit {result.returncode}"

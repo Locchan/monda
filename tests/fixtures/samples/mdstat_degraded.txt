@@ -1,0 +1,9 @@
+Personalities : [raid1] [raid6] [raid5] [raid4] 
+md0 : active raid1 sda1[0] sdb1[1]
+      1000 blocks [2/2] [UU]
+
+md1 : active raid5 sdc[0] sdd[1] sde[2]
+      2000 blocks super 1.2 level 5, 512k chunk, algorithm 2 [3/2] [UU_]
+      [=======>.............]  recovery = 40.0% (100/200) finish=1.0min speed=100K/sec
+
+unused devices: <none>
