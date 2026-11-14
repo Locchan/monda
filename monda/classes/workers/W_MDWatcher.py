@@ -10,10 +10,10 @@ logger: logging.Logger = get_logger()
 
 
 # docs/workers.md
-class W_MDadm(Worker):
+class W_MDWatcher(Worker):
 
-    worker_class_name = "W_MDadm"
-    worker_class_name_short = "W:MDadm"
+    worker_class_name = "W_MDWatcher"
+    worker_class_name_short = "W:MD"
 
     def _initialize(self) -> bool:
         self._last_alert: dict[str, float] = {}
@@ -25,9 +25,15 @@ class W_MDadm(Worker):
             self._prev_syncing: dict[str, str | None] = {
                 name: info["syncing"] for name, info in arrays.items()
             }
-        except Exception:
+            count = len(arrays)
+            self._update_status(
+                f"Watching {count} md array{'s' if count != 1 else ''}."
+                if count else "No md arrays detected."
+            )
+        except Exception as e:
+            logger.error(f"Could not read mdstat at '{path}': {e}")
             self._prev_syncing = {}
-        self._update_status("Watching md arrays.")
+            self._update_status("Watching md arrays.")
         return True
 
     def _maybe_alert(self, key: str, message: str, target: str, now: float) -> None:
@@ -37,6 +43,7 @@ class W_MDadm(Worker):
         send_alert(message, target=target)
 
     def _parse_mdstat(self, path: str) -> dict[str, dict]:
+        """Auto-detect all md arrays from mdstat."""
         with open(path) as f:
             content = f.read()
 
@@ -77,6 +84,7 @@ class W_MDadm(Worker):
         now = time.time()
         target = self.config.get("ALERT_TARGET", "general")
         path = self.config.get("MDSTAT_PATH", "/proc/mdstat")
+        ignore: set[str] = set(self.config.get("IGNORE", []))
 
         try:
             arrays = self._parse_mdstat(path)
@@ -87,12 +95,15 @@ class W_MDadm(Worker):
         problems: list[str] = []
 
         for name, info in arrays.items():
+            if name in ignore:
+                continue
+
             # Drive failure — persistent state, re-alert every 24 h
             failed = info["failed_drives"]
             if failed > 0:
                 self._maybe_alert(
                     f"{name}:failed",
-                    f"mdadm: {failed} drive(s) failed in {name}.",
+                    f"md: {failed} drive(s) failed in {name}.",
                     target, now,
                 )
                 problems.append(f"{name}: {failed} drive(s) failed")
@@ -103,7 +114,7 @@ class W_MDadm(Worker):
             if info["state"] == "inactive":
                 self._maybe_alert(
                     f"{name}:inactive",
-                    f"mdadm: array {name} is inactive.",
+                    f"md: array {name} is inactive.",
                     target, now,
                 )
                 problems.append(f"{name}: inactive")
@@ -114,9 +125,9 @@ class W_MDadm(Worker):
             prev = self._prev_syncing.get(name)
             curr = info["syncing"]
             if curr and not prev:
-                send_alert(f"mdadm: {curr} started on {name}.", target=target)
+                send_alert(f"md: {curr} started on {name}.", target=target)
             elif prev and not curr:
-                send_alert(f"mdadm: {prev} finished on {name}.", target=target)
+                send_alert(f"md: {prev} finished on {name}.", target=target)
             self._prev_syncing[name] = curr
 
         # Clean up state for arrays that disappeared from mdstat
@@ -128,7 +139,15 @@ class W_MDadm(Worker):
         if problems:
             self._update_status(f"Issues: {', '.join(problems)}.", warning=True)
         else:
-            syncing = [f"{n} ({v['syncing']})" for n, v in arrays.items() if v["syncing"]]
-            self._update_status(
-                f"Syncing: {', '.join(syncing)}." if syncing else "All arrays healthy."
-            )
+            syncing = [
+                f"{n} ({v['syncing']})"
+                for n, v in arrays.items()
+                if v["syncing"] and n not in ignore
+            ]
+            watched = len(arrays) - len(ignore & set(arrays))
+            if syncing:
+                self._update_status(f"Syncing: {', '.join(syncing)}.")
+            elif watched == 0:
+                self._update_status("No md arrays detected.")
+            else:
+                self._update_status(f"All {watched} array{'s' if watched != 1 else ''} healthy.")

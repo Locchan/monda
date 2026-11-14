@@ -120,12 +120,22 @@ class WorkerSchema:
 
 
 WORKER_SCHEMAS: dict[str, WorkerSchema] = {
-    "W_MDadm": WorkerSchema(
-        "Alert on mdadm RAID events: drive failure, inactive array, resync start/end",
+    "W_MDWatcher": WorkerSchema(
+        "Auto-detect md arrays and alert on drive failure, inactive state, resync start/end",
         [
             Field("INTERVAL",     "Poll interval (seconds)",              "int", 30),
             Field("ALERT_TARGET", "LED alert target name",                "str", "general", optional=True),
             Field("MDSTAT_PATH",  "Path to mdstat file",                  "str", "/proc/mdstat", optional=True),
+            Field("IGNORE",       "Array names to ignore (comma-sep)",    "list_str", optional=True),
+            _ENABLED_FIELD,
+        ],
+    ),
+    "W_ZFSWatcher": WorkerSchema(
+        "Auto-detect ZFS pools and alert on bad health, device faults, I/O errors, scrub/resilver",
+        [
+            Field("INTERVAL",     "Poll interval (seconds)",              "int", 60),
+            Field("ALERT_TARGET", "LED alert target name",                "str", "general", optional=True),
+            Field("IGNORE",       "Pool names to ignore (comma-sep)",     "list_str", optional=True),
             _ENABLED_FIELD,
         ],
     ),

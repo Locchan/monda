@@ -22,10 +22,11 @@ from monda.classes.workers.W_BackupWatcherRaw import W_BackupWatcherRaw
 from monda.classes.workers.W_ConfigWatch import W_ConfigWatch
 from monda.classes.workers.W_Cron import W_Cron
 from monda.classes.workers.W_DockerWatcher import W_DockerWatcher
-from monda.classes.workers.W_MDadm import W_MDadm
+from monda.classes.workers.W_MDWatcher import W_MDWatcher
 from monda.classes.workers.W_MondaStatus import W_MondaStatus
 from monda.classes.workers.W_SSHLoginWatcher import W_SSHLoginWatcher
 from monda.classes.workers.W_SystemdWatcher import W_SystemdWatcher
+from monda.classes.workers.W_ZFSWatcher import W_ZFSWatcher
 from monda.classes.workers.hik.W_HikProducer import W_HikProducer
 from monda.classes.workers.hik.W_HikConsumer import W_HikConsumer
 from monda.classes.workers.telegram.W_TelegramBot import W_TelegramBot
@@ -36,10 +37,11 @@ ENABLED_WORKERS = {
     "W_ConfigWatch": W_ConfigWatch,
     "W_Cron": W_Cron,
     "W_DockerWatcher": W_DockerWatcher,
-    "W_MDadm": W_MDadm,
+    "W_MDWatcher": W_MDWatcher,
     "W_MondaStatus": W_MondaStatus,
     "W_SSHLoginWatcher": W_SSHLoginWatcher,
     "W_SystemdWatcher": W_SystemdWatcher,
+    "W_ZFSWatcher": W_ZFSWatcher,
     "W_HikProducer": W_HikProducer,
     "W_HikConsumer": W_HikConsumer,
     "W_TelegramBot": W_TelegramBot,

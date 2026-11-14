@@ -396,6 +396,78 @@ not start.
 }
 ```
 
+## W_MDWatcher
+
+Auto-detects Linux md arrays from `/proc/mdstat` (override with `MDSTAT_PATH`)
+and watches them every tick. No array list is configured — every array present
+in mdstat is monitored unless listed in `IGNORE`.
+
+Alerts (24 h cooldown while the condition persists):
+
+- one or more failed/missing drives (`[UU_U]` underscores)
+- array state `inactive`
+
+Event alerts (once per transition, no cooldown):
+
+- resync / recovery / check / repair started
+- same operation finished
+
+### Config
+
+| Key            | Type        | Required | Default           | Purpose                                   |
+|----------------|-------------|----------|-------------------|-------------------------------------------|
+| `ALERT_TARGET` | string      | no       | `"general"`       | LED alert target name passed to `send_alert`. |
+| `MDSTAT_PATH`  | string      | no       | `/proc/mdstat`    | Path to the mdstat file.                  |
+| `IGNORE`       | list[string]| no       | `[]`              | Array names (e.g. `md0`) to exclude.      |
+| `INTERVAL`     | int         | no       | `30`              | Seconds between checks.                   |
+
+```json
+"WORKER_CONFIG": {
+  "W_MDWatcher": {
+    "main": {
+      "INTERVAL": 30,
+      "ALERT_TARGET": "general"
+    }
+  }
+}
+```
+
+## W_ZFSWatcher
+
+Auto-detects imported ZFS pools via `zpool status` and watches them every
+tick. No pool list is configured — every imported pool is monitored unless
+listed in `IGNORE`. Requires the `zpool` binary on `PATH`.
+
+Alerts (24 h cooldown while the condition persists):
+
+- pool health anything other than `ONLINE` (e.g. `DEGRADED`, `FAULTED`)
+- pool-level data errors (`errors:` line is not "No known data errors")
+- vdev/device state outside `ONLINE` / `AVAIL`, or non-zero READ/WRITE/CKSUM
+
+Event alerts (once per transition, no cooldown):
+
+- scrub / resilver started
+- scrub / resilver finished
+
+### Config
+
+| Key            | Type        | Required | Default     | Purpose                                   |
+|----------------|-------------|----------|-------------|-------------------------------------------|
+| `ALERT_TARGET` | string      | no       | `"general"` | LED alert target name passed to `send_alert`. |
+| `IGNORE`       | list[string]| no       | `[]`        | Pool names to exclude from alerts.        |
+| `INTERVAL`     | int         | no       | `60`        | Seconds between checks.                   |
+
+```json
+"WORKER_CONFIG": {
+  "W_ZFSWatcher": {
+    "main": {
+      "INTERVAL": 60,
+      "ALERT_TARGET": "general"
+    }
+  }
+}
+```
+
 ## W_SystemdWatcher
 
 Queries `systemctl` for failed services on every tick and fires a
