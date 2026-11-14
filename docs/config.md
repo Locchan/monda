@@ -251,7 +251,14 @@ one:
 - If the slice changed, the worker sends an LED alert
   (`Worker <name> restarted due to configuration change.`), logs at info,
   and exits its thread; the main loop resurrects it with the new config
-  (including a new `INTERVAL`). This is not counted as a crash/recovery.
+  (including a new `INTERVAL`). If the change was detected mid-sleep, the
+  original wake deadline is preserved and the new instance finishes that
+  sleep before the next `_work()`. This is not counted as a crash/recovery.
+  Inter-tick sleeps use an absolute `next_due` deadline so the ≤5s
+  config-check chunks do not accumulate schedule drift. Oversleeping a
+  deadline starts the tick immediately. At work start the next deadline is
+  set to `last + interval`; finishing after that marks the worker red,
+  alerts, and reschedules to `now + interval`.
 - If `ENABLED` is set to `false` (or the instance is removed), the worker logs
   that it is stopping, exits, and removes its status/MOTD entry. The main loop
   does not resurrect it.

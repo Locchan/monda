@@ -6,15 +6,26 @@ _lock = threading.Lock()
 _workers: dict[str, "WorkerEntry"] = {}
 _jobs: dict[str, "JobEntry"] = {}
 _config_reloads: set[str] = set()
+# monotonic deadlines for mid-sleep config reloads
+_pending_sleep_until: dict[str, float] = {}
 
 
 def _reload_key(worker_type: str, instance_name: str) -> str:
     return f"{worker_type}/{instance_name}"
 
 
-def mark_config_reload(worker_type: str, instance_name: str) -> None:
+def mark_config_reload(
+    worker_type: str,
+    instance_name: str,
+    sleep_until: float | None = None,
+) -> None:
     with _lock:
-        _config_reloads.add(_reload_key(worker_type, instance_name))
+        key = _reload_key(worker_type, instance_name)
+        _config_reloads.add(key)
+        if sleep_until is not None:
+            _pending_sleep_until[key] = sleep_until
+        else:
+            _pending_sleep_until.pop(key, None)
 
 
 def consume_config_reload(worker_type: str, instance_name: str) -> bool:
@@ -24,6 +35,11 @@ def consume_config_reload(worker_type: str, instance_name: str) -> bool:
             _config_reloads.discard(key)
             return True
         return False
+
+
+def consume_pending_sleep(worker_type: str, instance_name: str) -> float | None:
+    with _lock:
+        return _pending_sleep_until.pop(_reload_key(worker_type, instance_name), None)
 
 
 @dataclass

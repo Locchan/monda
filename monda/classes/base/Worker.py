@@ -9,12 +9,17 @@ from monda.utils.logger import get_logger
 from monda.utils.misc import read_config
 from monda.utils.status import (
     WorkerEntry,
+    consume_pending_sleep,
     get_or_create_worker,
     mark_config_reload,
     remove_worker,
 )
 
 logger: logging.Logger = get_logger()
+
+# Max uninterrupted sleep between config-change checks (when watching).
+_SLEEP_CHUNK_S = 5.0
+
 
 class Worker:
 
@@ -63,11 +68,12 @@ class Worker:
             entry.crash_error = None
             entry.warning = False
             entry.error = False
-            entry.detail = "Starting..."
-            # Config-driven restarts are intentional — don't mark as a crash recovery.
+            # Config-driven restarts are intentional — don't mark as crash recovery
+            # and keep the previous status detail (e.g. mid-sleep resume).
             if not config_reload:
                 entry.last_restart_at = time.time()
                 entry.restart_count += 1
+                entry.detail = "Starting..."
         self._status_entry = entry
 
         worker_config = read_config().get("WORKER_CONFIG", {})
@@ -121,27 +127,88 @@ class Worker:
             return "changed"
         return "ok"
 
+    def _sleep_until(self, deadline: float) -> str:
+        """Sleep until a monotonic deadline without drifting from check overhead.
+
+        If the deadline is already in the past (overslept), returns "ok"
+        immediately so the tick can launch right away.
+
+        When config watching is on and more than 5s remain, sleeps in ≤5s chunks
+        and re-checks for config changes between chunks. Returns the same action
+        codes as `_refresh_config`, or "ok" when the deadline is reached.
+        """
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return "ok"
+            if not self.watch_config_changes or remaining <= _SLEEP_CHUNK_S:
+                time.sleep(remaining)
+                return "ok"
+            time.sleep(_SLEEP_CHUNK_S)
+            action = self._refresh_config()
+            if action != "ok":
+                return action
+
+    def _stop_for_config(self, action: str, sleep_until: float | None = None) -> bool:
+        """Handle disabled/changed. Returns True if `_run` should exit."""
+        if action == "ok":
+            return False
+        if action == "disabled":
+            logger.info(f"Worker {self.name} disabled in config, stopping.")
+            self._purge_status()
+            return True
+        # changed
+        logger.info(f"Worker {self.name} config changed, restarting.")
+        pending = sleep_until if sleep_until is not None and sleep_until > time.monotonic() else None
+        mark_config_reload(self.worker_class_name, self._instance_name, sleep_until=pending)
+        target = self.config.get("ALERT_TARGET", "general")
+        send_alert(
+            f"Worker {self.name} restarted due to configuration change.",
+            target=target,
+        )
+        return True
+
     def _run(self) -> None:
-        if self._status_entry is not None:
-            self._status_entry.detail = "Running."
         try:
+            # Resume an interrupted inter-tick sleep after a config-change restart.
+            resume_deadline = consume_pending_sleep(self.worker_class_name, self._instance_name)
+            if resume_deadline is not None:
+                next_due = resume_deadline
+            else:
+                next_due = time.monotonic()
+                if self._status_entry is not None:
+                    self._status_entry.detail = "Running."
+
             while True:
-                action = self._refresh_config()
-                if action == "disabled":
-                    logger.info(f"Worker {self.name} disabled in config, stopping.")
-                    self._purge_status()
+                # Overslept → _sleep_until returns immediately → tick starts now.
+                action = self._sleep_until(next_due)
+                if self._stop_for_config(action, sleep_until=next_due):
                     return
-                if action == "changed":
-                    logger.info(f"Worker {self.name} config changed, restarting.")
-                    mark_config_reload(self.worker_class_name, self._instance_name)
+
+                action = self._refresh_config()
+                if self._stop_for_config(action):
+                    return
+
+                interval = max(float(self.interval), 0.0)
+                # Next deadline is fixed at work start: last deadline + period.
+                next_due = next_due + interval
+                self._work()
+
+                # Finished after that deadline → error, reschedule from now.
+                if interval > 0 and time.monotonic() >= next_due:
+                    logger.error(
+                        f"Worker {self.name} finished after its next deadline; "
+                        f"rescheduling from now."
+                    )
+                    if self._status_entry is not None:
+                        self._status_entry.error = True
                     target = self.config.get("ALERT_TARGET", "general")
                     send_alert(
-                        f"Worker {self.name} restarted due to configuration change.",
+                        f"Worker {self.name} overlapped its scheduled deadline; "
+                        f"rescheduled.",
                         target=target,
                     )
-                    return
-                self._work()
-                time.sleep(self.interval)
+                    next_due = time.monotonic() + interval
         except BaseException as e:
             logger.error(f"Crashed with an exception: {e}")
             logger.error(str(e))

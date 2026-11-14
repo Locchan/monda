@@ -19,14 +19,17 @@ construct  →  initialize()  →  run()  →  _run() loop  →  (death)  →  r
    the worker won't start.
 3. **`run()`** spawns a daemon thread named `<short_name>_<instance>` (the
    worker's `self.name`) and returns it. The thread executes `_run()`.
-4. **`_run()`** loops: call `_refresh_config()`, call `_work()`, sleep
-   `interval` seconds, repeat. Any `BaseException` is caught, logged, and ends
-   the loop (the thread dies and the main loop resurrects it on the next health
-   check). If `_refresh_config()` reports a config-slice change, the worker
-   logs and exits so the main loop can restart it. If the instance is disabled
-   or removed, the worker logs, purges its status entry, and exits without
-   resurrection. `W_ConfigWatch` sets `watch_config_changes = False` and skips
-   this.
+4. **`_run()`** keeps a monotonic `next_due` schedule: sleep **until**
+   `next_due`, then at work start set `next_due += interval`, then
+   `_work()`. If `next_due` is already past when sleeping (overslept), the
+   tick starts immediately. If work finishes after that new deadline, the
+   worker goes red (`error`), LED-alerts, and sets
+   `next_due = now + interval`. Sleeps longer than 5s are split into ≤5s
+   chunks with a config check between chunks. A mid-sleep config restart
+   stores `next_due` and the new instance resumes that sleep. Any
+   `BaseException` ends the loop for resurrection. Config-slice changes
+   LED-alert and restart; `ENABLED: false` / removed instances stop and
+   purge status. `W_ConfigWatch` sets `watch_config_changes = False`.
 
 ## Required class attributes
 
