@@ -116,9 +116,18 @@ fi
 
 mkdir -p "$CONFIG_DIR"
 
+# Delete a path only if it exists; print what we remove (no silent wildcards).
+remove_if_present() {
+    local path="$1"
+    if [ -e "$path" ] || [ -L "$path" ]; then
+        echo "  removing $path"
+        rm -r -- "$path"
+    fi
+}
+
 if [ "$FORCE" -eq 1 ]; then
-    echo "Force: removing venv at $VENV_DIR..."
-    rm -rf "$VENV_DIR"
+    echo "Force: recreating virtualenv ($VENV_DIR)..."
+    remove_if_present "$VENV_DIR"
 fi
 
 if [ ! -x "$VENV_DIR/bin/python" ]; then
@@ -128,15 +137,34 @@ if [ ! -x "$VENV_DIR/bin/python" ]; then
 fi
 
 echo "Installing the monda package into $VENV_DIR..."
-# Purge first so renamed/removed modules cannot linger across upgrades.
+# Uninstall first so renamed modules cannot linger across upgrades.
 "$VENV_DIR/bin/pip" uninstall -y MonDa >/dev/null 2>&1 || true
-rm -rf \
-    "$VENV_DIR"/lib/python*/site-packages/monda \
-    "$VENV_DIR"/lib/python*/site-packages/monda-*.dist-info \
-    "$VENV_DIR"/lib/python*/site-packages/MonDa-*.dist-info \
-    "$VENV_DIR"/lib/python*/site-packages/__editable__*monda* \
-    "$VENV_DIR"/lib/python*/site-packages/__editable__.monda* \
-    "$VENV_DIR"/src/monda* 2>/dev/null || true
+SITE_PACKAGES="$("$VENV_DIR/bin/python" -c 'import site; print(site.getsitepackages()[0])')"
+echo "Clearing previous MonDa files under $SITE_PACKAGES (if any)..."
+remove_if_present "$SITE_PACKAGES/monda"
+# dist-info / editable leftovers — only names that start with monda/MonDa
+shopt -s nullglob
+for leftover in \
+    "$SITE_PACKAGES"/monda-*.dist-info \
+    "$SITE_PACKAGES"/MonDa-*.dist-info \
+    "$SITE_PACKAGES"/__editable__.monda* \
+    "$SITE_PACKAGES"/__editable__*monda*
+do
+    remove_if_present "$leftover"
+done
+shopt -u nullglob
+remove_if_present "$VENV_DIR/src/monda"
+
+# setuptools reuses checkout build/ — stale copies can reinstall deleted modules.
+echo "Clearing local setuptools build artifacts (if any)..."
+remove_if_present "$SCRIPT_DIR/build"
+remove_if_present "$SCRIPT_DIR/dist"
+remove_if_present "$SCRIPT_DIR/MonDa.egg-info"
+shopt -s nullglob
+for egg in "$SCRIPT_DIR"/*.egg-info; do
+    remove_if_present "$egg"
+done
+shopt -u nullglob
 
 "$VENV_DIR/bin/pip" install --quiet "$SCRIPT_DIR"
 

@@ -16,7 +16,8 @@ The installer:
 
 1. Checks for Python 3.10+ and `python3-venv`.
 2. Creates a virtualenv at `/opt/monda/venv` (or recreates it with `--force`),
-   uninstalls any previous MonDa install, then installs this checkout.
+   uninstalls any previous MonDa install, clears stale `build/`/`*.egg-info`
+   in the checkout, then installs this checkout.
 3. Symlinks the `monda` command to `/usr/local/bin/monda`.
 4. Creates the config directory `/etc/monda/`.
 5. Installs the `monda.service` systemd unit.
