@@ -15,6 +15,7 @@ from monda.utils.fmt import format_status_text
 from monda.utils.logger import get_logger, resolve_log_dir, setdebug, setup_log_dir
 from monda.utils.logs_cmd import run_logs
 from monda.utils.misc import splash, read_config, signal_stop, acquire_pid_file
+from monda.utils.status import consume_config_reload
 
 
 _DEFAULT_PID_FILE = "/tmp/monda.pid"
@@ -100,11 +101,18 @@ def main() -> None:
                                    .get(instance_name))
                 if instance_config is None or not instance_config.get("ENABLED", True):
                     continue
-                if thread is None:
+                config_reload = consume_config_reload(worker_type, instance_name)
+                if config_reload:
+                    logger.info(
+                        f"Restarting worker after config change: {worker_type}/{instance_name}"
+                    )
+                elif thread is None:
                     logger.warning(f"Retrying worker initialization: {worker_type}/{instance_name}")
                 else:
                     logger.warning(f"Resurrecting a dead worker: {thread.name}")
-                new_thread = start_worker_by_name(worker_type, instance_name)
+                new_thread = start_worker_by_name(
+                    worker_type, instance_name, config_reload=config_reload
+                )
                 if new_thread is not None:
                     worker_threads[i] = (new_thread, worker_type, instance_name)
                 else:

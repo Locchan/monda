@@ -7,14 +7,18 @@ from monda.utils.misc import read_config
 
 logger: logging.Logger = get_logger()
 
-def start_worker_by_name(worker_type: str, instance_name: str) -> Thread | None:
+def start_worker_by_name(
+    worker_type: str,
+    instance_name: str,
+    config_reload: bool = False,
+) -> Thread | None:
     worker_config = read_config().get("WORKER_CONFIG", {})
     instances = worker_config.get(worker_type, {})
     if instance_name not in instances:
         return None
     interval = instances[instance_name].get("INTERVAL", 10)
     worker = ENABLED_WORKERS[worker_type](instance_name, interval)
-    if not worker.initialize():
+    if not worker.initialize(config_reload=config_reload):
         return None
     return worker.run()
 

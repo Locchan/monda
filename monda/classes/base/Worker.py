@@ -7,7 +7,12 @@ from monda.config_schema import WORKER_SCHEMAS, validate
 from monda.utils.led_alert import send_alert
 from monda.utils.logger import get_logger
 from monda.utils.misc import read_config
-from monda.utils.status import WorkerEntry, get_or_create_worker
+from monda.utils.status import (
+    WorkerEntry,
+    get_or_create_worker,
+    mark_config_reload,
+    remove_worker,
+)
 
 logger: logging.Logger = get_logger()
 
@@ -15,6 +20,9 @@ class Worker:
 
     worker_class_name: str = "Worker"
     worker_class_name_short: str = "W:"
+    # When True, config-slice changes restart the worker; ENABLED false stops it.
+    # W_ConfigWatch sets this False.
+    watch_config_changes: bool = True
 
     def __init__(self, name: str, interval_s: int) -> None:
         if "-" in self.worker_class_name or '-' in name:
@@ -44,16 +52,22 @@ class Worker:
             self._status_entry.warning = warning
             self._status_entry.error = error
 
-    def initialize(self) -> bool:
+    def _purge_status(self) -> None:
+        remove_worker(self.name)
+        self._status_entry = None
+
+    def initialize(self, config_reload: bool = False) -> bool:
         entry, is_new = get_or_create_worker(self.name)
         if not is_new:
-            entry.last_restart_at = time.time()
-            entry.restart_count += 1
             entry.crashed_at = None
             entry.crash_error = None
             entry.warning = False
             entry.error = False
             entry.detail = "Starting..."
+            # Config-driven restarts are intentional — don't mark as a crash recovery.
+            if not config_reload:
+                entry.last_restart_at = time.time()
+                entry.restart_count += 1
         self._status_entry = entry
 
         worker_config = read_config().get("WORKER_CONFIG", {})
@@ -76,7 +90,7 @@ class Worker:
         if not instance_config.get("ENABLED", True):
             logger.info(f"Worker {self.worker_class_name}/{self._instance_name} is disabled.")
             self._disabled = True
-            entry.detail = "Disabled."
+            self._purge_status()
             return True
         self.config = instance_config
         self.initialized = bool(self._initialize())
@@ -86,20 +100,46 @@ class Worker:
             entry.crash_error = "Initialization failed."
         return self.initialized
 
-    def _refresh_config(self) -> None:
+    def _refresh_config(self) -> str:
+        """Re-read this worker's config slice.
+
+        Returns:
+            "ok" — unchanged (or watching disabled for this worker class)
+            "changed" — slice differs; caller should restart
+            "disabled" — ENABLED is false or instance removed; caller should stop
+        """
+        if not self.watch_config_changes:
+            return "ok"
+
         instance_config = (read_config()
                            .get("WORKER_CONFIG", {})
                            .get(self.worker_class_name, {})
-                           .get(self._instance_name, {}))
-        if instance_config:
-            self.config = instance_config
+                           .get(self._instance_name))
+        if instance_config is None or not instance_config.get("ENABLED", True):
+            return "disabled"
+        if instance_config != self.config:
+            return "changed"
+        return "ok"
 
     def _run(self) -> None:
         if self._status_entry is not None:
             self._status_entry.detail = "Running."
         try:
             while True:
-                self._refresh_config()
+                action = self._refresh_config()
+                if action == "disabled":
+                    logger.info(f"Worker {self.name} disabled in config, stopping.")
+                    self._purge_status()
+                    return
+                if action == "changed":
+                    logger.info(f"Worker {self.name} config changed, restarting.")
+                    mark_config_reload(self.worker_class_name, self._instance_name)
+                    target = self.config.get("ALERT_TARGET", "general")
+                    send_alert(
+                        f"Worker {self.name} restarted due to configuration change.",
+                        target=target,
+                    )
+                    return
                 self._work()
                 time.sleep(self.interval)
         except BaseException as e:

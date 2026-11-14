@@ -6,7 +6,7 @@ class W_ConfigWatch(Worker):
 
     worker_class_name = "W_ConfigWatch"
     worker_class_name_short = "W:CfgWatch"
-
+    watch_config_changes = False
 
     def _initialize(self) -> bool:
         self._update_status("Watching config.")

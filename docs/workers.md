@@ -22,7 +22,11 @@ construct  →  initialize()  →  run()  →  _run() loop  →  (death)  →  r
 4. **`_run()`** loops: call `_refresh_config()`, call `_work()`, sleep
    `interval` seconds, repeat. Any `BaseException` is caught, logged, and ends
    the loop (the thread dies and the main loop resurrects it on the next health
-   check).
+   check). If `_refresh_config()` reports a config-slice change, the worker
+   logs and exits so the main loop can restart it. If the instance is disabled
+   or removed, the worker logs, purges its status entry, and exits without
+   resurrection. `W_ConfigWatch` sets `watch_config_changes = False` and skips
+   this.
 
 ## Required class attributes
 
@@ -30,6 +34,7 @@ construct  →  initialize()  →  run()  →  _run() loop  →  (death)  →  r
 |---------------------------|-----------------------------------------------------------|
 | `worker_class_name`       | Must equal the class name and must start with `W_`. Used as the key under `WORKER_CONFIG`. |
 | `worker_class_name_short` | Short tag prepended to the instance name to form `self.name` (e.g. `W:Cron_main`). No `-`. |
+| `watch_config_changes`    | Default `True`. Set `False` to skip config-change restart / disable-stop (used by `W_ConfigWatch`). |
 
 ## Hooks to override
 

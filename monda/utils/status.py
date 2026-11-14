@@ -5,6 +5,25 @@ from dataclasses import dataclass, field
 _lock = threading.Lock()
 _workers: dict[str, "WorkerEntry"] = {}
 _jobs: dict[str, "JobEntry"] = {}
+_config_reloads: set[str] = set()
+
+
+def _reload_key(worker_type: str, instance_name: str) -> str:
+    return f"{worker_type}/{instance_name}"
+
+
+def mark_config_reload(worker_type: str, instance_name: str) -> None:
+    with _lock:
+        _config_reloads.add(_reload_key(worker_type, instance_name))
+
+
+def consume_config_reload(worker_type: str, instance_name: str) -> bool:
+    with _lock:
+        key = _reload_key(worker_type, instance_name)
+        if key in _config_reloads:
+            _config_reloads.discard(key)
+            return True
+        return False
 
 
 @dataclass
@@ -47,6 +66,11 @@ def get_or_create_worker(name: str) -> tuple["WorkerEntry", bool]:
         if is_new:
             _workers[name] = WorkerEntry(name=name)
         return _workers[name], is_new
+
+
+def remove_worker(name: str) -> None:
+    with _lock:
+        _workers.pop(name, None)
 
 
 def get_or_create_job(key: str) -> "JobEntry":

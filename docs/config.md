@@ -244,9 +244,19 @@ type silently. See [jobs.md](jobs.md).
 ## Live reload
 
 A built-in `W_ConfigWatch` worker calls `read_config()` every
-`CONFIG_WATCH_INTERVAL` seconds (default `5`). Workers re-read their config
-slice before every `_work()` tick. Editing the file takes effect without a
-restart, subject to the tick interval.
+`CONFIG_WATCH_INTERVAL` seconds (default `5`). Before every `_work()` tick,
+other workers compare their `WORKER_CONFIG` instance slice to the last loaded
+one:
+
+- If the slice changed, the worker sends an LED alert
+  (`Worker <name> restarted due to configuration change.`), logs at info,
+  and exits its thread; the main loop resurrects it with the new config
+  (including a new `INTERVAL`). This is not counted as a crash/recovery.
+- If `ENABLED` is set to `false` (or the instance is removed), the worker logs
+  that it is stopping, exits, and removes its status/MOTD entry. The main loop
+  does not resurrect it.
+
+`W_ConfigWatch` itself does not restart or stop on config changes.
 
 ## Environment variables
 
