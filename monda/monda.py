@@ -119,8 +119,15 @@ def main() -> None:
     worker_threads = start_all_workers()
 
     if not worker_threads:
-        logger.error("FATAL: Could not start workers.")
-        os._exit(1)
+        if read_config().get("WORKER_CONFIG"):
+            # Misconfigured / all unknown types already alerted — keep the
+            # process up so config watch and LED stay available.
+            logger.error(
+                "No startable workers; continuing with config watcher only."
+            )
+        else:
+            logger.error("FATAL: Could not start workers.")
+            os._exit(1)
 
     while True:
         _supervise_once(worker_threads)
