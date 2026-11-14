@@ -99,7 +99,26 @@ if [ ! -x "$VENV_DIR/bin/python" ]; then
 fi
 
 echo "Installing the monda package into $VENV_DIR..."
-"$VENV_DIR/bin/pip" install --quiet --force-reinstall "$SCRIPT_DIR"
+# Wipe any previous MonDa install first. pip --force-reinstall alone can leave
+# renamed/removed modules behind (e.g. W_MDadm.py after a rename to W_MDWatcher),
+# which causes mixed-install fatals at import time.
+"$VENV_DIR/bin/pip" uninstall -y MonDa >/dev/null 2>&1 || true
+# shellcheck disable=SC2086
+rm -rf \
+    "$VENV_DIR"/lib/python*/site-packages/monda \
+    "$VENV_DIR"/lib/python*/site-packages/monda-*.dist-info \
+    "$VENV_DIR"/lib/python*/site-packages/MonDa-*.dist-info \
+    "$VENV_DIR"/lib/python*/site-packages/__editable__*monda* \
+    "$VENV_DIR"/lib/python*/site-packages/__editable__.monda* \
+    "$VENV_DIR"/src/monda* 2>/dev/null || true
+
+"$VENV_DIR/bin/pip" install --quiet "$SCRIPT_DIR"
+
+echo "Verifying install consistency..."
+if ! "$VENV_DIR/bin/python" -m monda.install_verify; then
+    echo "ERROR: install verification failed; refusing to leave a mixed install." >&2
+    exit 1
+fi
 
 MONDA_BIN="$VENV_DIR/bin/monda"
 
