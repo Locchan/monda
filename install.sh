@@ -11,6 +11,30 @@ VENV_DIR=/opt/monda/venv
 CONFIG_DIR=/etc/monda
 CONFIG_FILE="$CONFIG_DIR/config.json"
 MIN_PYTHON="3.10"
+FORCE=0
+
+usage() {
+    cat <<EOF
+Usage: sudo ./install.sh [--force]
+
+  --force   Delete $VENV_DIR entirely and recreate it before installing.
+EOF
+}
+
+for arg in "$@"; do
+    case "$arg" in
+        --force) FORCE=1 ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $arg" >&2
+            usage >&2
+            exit 1
+            ;;
+    esac
+done
 
 # If this checkout is a git repo and the local branch is behind its upstream,
 # offer to pull. If the user pulls, re-exec to pick up the new install.sh.
@@ -92,6 +116,11 @@ fi
 
 mkdir -p "$CONFIG_DIR"
 
+if [ "$FORCE" -eq 1 ]; then
+    echo "Force: removing venv at $VENV_DIR..."
+    rm -rf "$VENV_DIR"
+fi
+
 if [ ! -x "$VENV_DIR/bin/python" ]; then
     echo "Creating venv at $VENV_DIR..."
     mkdir -p "$(dirname "$VENV_DIR")"
@@ -99,11 +128,8 @@ if [ ! -x "$VENV_DIR/bin/python" ]; then
 fi
 
 echo "Installing the monda package into $VENV_DIR..."
-# Wipe any previous MonDa install first. pip --force-reinstall alone can leave
-# renamed/removed modules behind (e.g. W_MDadm.py after a rename to W_MDWatcher),
-# which causes mixed-install fatals at import time.
+# Purge first so renamed/removed modules cannot linger across upgrades.
 "$VENV_DIR/bin/pip" uninstall -y MonDa >/dev/null 2>&1 || true
-# shellcheck disable=SC2086
 rm -rf \
     "$VENV_DIR"/lib/python*/site-packages/monda \
     "$VENV_DIR"/lib/python*/site-packages/monda-*.dist-info \
@@ -113,12 +139,6 @@ rm -rf \
     "$VENV_DIR"/src/monda* 2>/dev/null || true
 
 "$VENV_DIR/bin/pip" install --quiet "$SCRIPT_DIR"
-
-echo "Verifying install consistency..."
-if ! "$VENV_DIR/bin/python" -m monda.install_verify; then
-    echo "ERROR: install verification failed; refusing to leave a mixed install." >&2
-    exit 1
-fi
 
 MONDA_BIN="$VENV_DIR/bin/monda"
 

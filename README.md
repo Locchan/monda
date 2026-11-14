@@ -9,18 +9,18 @@ and resurrects any that die.
 
 ```bash
 sudo ./install.sh
+sudo ./install.sh --force   # wipe /opt/monda/venv and recreate from scratch
 ```
 
 The installer:
 
 1. Checks for Python 3.10+ and `python3-venv`.
-2. Creates a virtualenv at `/opt/monda/venv`, **uninstalls any previous MonDa
-   tree** (so renamed modules cannot linger), then installs this checkout.
-3. Runs `python -m monda.install_verify` and aborts on a mixed/broken install.
-4. Symlinks the `monda` command to `/usr/local/bin/monda`.
-5. Creates the config directory `/etc/monda/`.
-6. Installs the `monda.service` systemd unit.
-7. Creates `/var/log/monda/` and installs a logrotate config (daily rotation,
+2. Creates a virtualenv at `/opt/monda/venv` (or recreates it with `--force`),
+   uninstalls any previous MonDa install, then installs this checkout.
+3. Symlinks the `monda` command to `/usr/local/bin/monda`.
+4. Creates the config directory `/etc/monda/`.
+5. Installs the `monda.service` systemd unit.
+6. Creates `/var/log/monda/` and installs a logrotate config (daily rotation,
    30 days retained, gzip-compressed).
 
 After installation:
