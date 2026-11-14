@@ -38,10 +38,11 @@ class Worker:
     def _initialize(self) -> None:
         pass
 
-    def _update_status(self, detail: str, warning: bool = False) -> None:
+    def _update_status(self, detail: str, warning: bool = False, error: bool = False) -> None:
         if self._status_entry is not None:
             self._status_entry.detail = detail
             self._status_entry.warning = warning
+            self._status_entry.error = error
 
     def initialize(self) -> bool:
         entry, is_new = get_or_create_worker(self.name)
@@ -50,6 +51,8 @@ class Worker:
             entry.restart_count += 1
             entry.crashed_at = None
             entry.crash_error = None
+            entry.warning = False
+            entry.error = False
             entry.detail = "Starting..."
         self._status_entry = entry
 

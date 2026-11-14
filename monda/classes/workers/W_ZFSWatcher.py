@@ -142,7 +142,7 @@ class W_ZFSWatcher(Worker):
             logger.error(f"Could not query ZFS pools: {e}")
             return
 
-        problems: list[str] = []
+        unhealthy: set[str] = set()
 
         for name, info in pools.items():
             if name in ignore:
@@ -155,7 +155,7 @@ class W_ZFSWatcher(Worker):
                     f"zfs: pool {name} is {health}.",
                     target, now,
                 )
-                problems.append(f"{name}: {health}")
+                unhealthy.add(name)
             else:
                 self._last_alert.pop(f"{name}:health", None)
 
@@ -165,7 +165,7 @@ class W_ZFSWatcher(Worker):
                     f"zfs: pool {name} reports errors: {info['errors']}",
                     target, now,
                 )
-                problems.append(f"{name}: data errors")
+                unhealthy.add(name)
             else:
                 self._last_alert.pop(f"{name}:errors", None)
 
@@ -187,7 +187,7 @@ class W_ZFSWatcher(Worker):
                         f"zfs: {dev['name']} in {name} is unhealthy ({detail}).",
                         target, now,
                     )
-                    problems.append(f"{dev['name']} ({detail})")
+                    unhealthy.add(name)
                 else:
                     self._last_alert.pop(f"{key}:device", None)
 
@@ -206,20 +206,9 @@ class W_ZFSWatcher(Worker):
                     self._last_alert.pop(key, None)
             self._prev_scan.pop(gone, None)
 
-        watched = [n for n in pools if n not in ignore]
-        if problems:
-            self._update_status(f"Issues: {', '.join(problems)}.", warning=True)
-        else:
-            scanning = [
-                f"{n} ({pools[n]['scan']})"
-                for n in watched
-                if pools[n]["scan"]
-            ]
-            if scanning:
-                self._update_status(f"Scanning: {', '.join(scanning)}.")
-            elif not watched:
-                self._update_status("No ZFS pools detected.")
-            else:
-                self._update_status(
-                    f"All {len(watched)} pool{'s' if len(watched) != 1 else ''} healthy."
-                )
+        total = len([n for n in pools if n not in ignore])
+        healthy = total - len(unhealthy)
+        self._update_status(
+            f"{healthy}/{total} pools healthy.",
+            error=bool(unhealthy),
+        )

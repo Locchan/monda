@@ -92,7 +92,7 @@ class W_MDWatcher(Worker):
             logger.error(f"Could not read mdstat at '{path}': {e}")
             return
 
-        problems: list[str] = []
+        unhealthy: set[str] = set()
 
         for name, info in arrays.items():
             if name in ignore:
@@ -106,7 +106,7 @@ class W_MDWatcher(Worker):
                     f"md: {failed} drive(s) failed in {name}.",
                     target, now,
                 )
-                problems.append(f"{name}: {failed} drive(s) failed")
+                unhealthy.add(name)
             else:
                 self._last_alert.pop(f"{name}:failed", None)
 
@@ -117,7 +117,7 @@ class W_MDWatcher(Worker):
                     f"md: array {name} is inactive.",
                     target, now,
                 )
-                problems.append(f"{name}: inactive")
+                unhealthy.add(name)
             else:
                 self._last_alert.pop(f"{name}:inactive", None)
 
@@ -136,18 +136,9 @@ class W_MDWatcher(Worker):
             self._last_alert.pop(f"{gone}:inactive", None)
             self._prev_syncing.pop(gone, None)
 
-        if problems:
-            self._update_status(f"Issues: {', '.join(problems)}.", warning=True)
-        else:
-            syncing = [
-                f"{n} ({v['syncing']})"
-                for n, v in arrays.items()
-                if v["syncing"] and n not in ignore
-            ]
-            watched = len(arrays) - len(ignore & set(arrays))
-            if syncing:
-                self._update_status(f"Syncing: {', '.join(syncing)}.")
-            elif watched == 0:
-                self._update_status("No md arrays detected.")
-            else:
-                self._update_status(f"All {watched} array{'s' if watched != 1 else ''} healthy.")
+        total = len([n for n in arrays if n not in ignore])
+        healthy = total - len(unhealthy)
+        self._update_status(
+            f"{healthy}/{total} arrays healthy.",
+            error=bool(unhealthy),
+        )

@@ -61,7 +61,8 @@ Color semantics:
 - 🟡 yellow — OK but the worker restarted within the last 24 h, or a
   monitored resource is in a warning state (overdue backup, failed service,
   unhealthy container).
-- 🔴 red — the worker crashed, or the last job run failed.
+- 🔴 red — the worker crashed, a monitored md array / ZFS pool is unhealthy,
+  or the last job run failed.
 
 The overall indicator on the header line reflects the worst color across all
 workers and jobs.
