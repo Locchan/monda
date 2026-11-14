@@ -68,6 +68,7 @@ class Worker:
             entry.crash_error = None
             entry.warning = False
             entry.error = False
+            entry.overlapped = False
             # Config-driven restarts are intentional — don't mark as crash recovery
             # and keep the previous status detail (e.g. mid-sleep resume).
             if not config_reload:
@@ -168,6 +169,30 @@ class Worker:
         )
         return True
 
+    def _finish_tick(self, next_due: float, interval: float) -> float:
+        """After `_work`: mark overlap red, or clear it after an on-time cycle."""
+        if interval > 0 and time.monotonic() >= next_due:
+            ignore = bool(self.config.get("IGNORE_OVERLAP", False))
+            if not ignore:
+                logger.error(
+                    f"Worker {self.name} finished after its next deadline; "
+                    f"rescheduling from now."
+                )
+                if self._status_entry is not None:
+                    self._status_entry.overlapped = True
+                target = self.config.get("ALERT_TARGET", "general")
+                send_alert(
+                    f"Worker {self.name} overlapped its scheduled deadline; "
+                    f"rescheduled.",
+                    target=target,
+                )
+            elif self._status_entry is not None:
+                self._status_entry.overlapped = False
+            return time.monotonic() + interval
+        if self._status_entry is not None:
+            self._status_entry.overlapped = False
+        return next_due
+
     def _run(self) -> None:
         try:
             # Resume an interrupted inter-tick sleep after a config-change restart.
@@ -193,22 +218,7 @@ class Worker:
                 # Next deadline is fixed at work start: last deadline + period.
                 next_due = next_due + interval
                 self._work()
-
-                # Finished after that deadline → error, reschedule from now.
-                if interval > 0 and time.monotonic() >= next_due:
-                    logger.error(
-                        f"Worker {self.name} finished after its next deadline; "
-                        f"rescheduling from now."
-                    )
-                    if self._status_entry is not None:
-                        self._status_entry.error = True
-                    target = self.config.get("ALERT_TARGET", "general")
-                    send_alert(
-                        f"Worker {self.name} overlapped its scheduled deadline; "
-                        f"rescheduled.",
-                        target=target,
-                    )
-                    next_due = time.monotonic() + interval
+                next_due = self._finish_tick(next_due, interval)
         except BaseException as e:
             logger.error(f"Crashed with an exception: {e}")
             logger.error(str(e))

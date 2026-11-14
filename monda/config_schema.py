@@ -42,6 +42,13 @@ class Field:
 
 
 _ENABLED_FIELD = Field("ENABLED", "Enable this instance", "bool", True, optional=True)
+_IGNORE_OVERLAP_FIELD = Field(
+    "IGNORE_OVERLAP",
+    "Suppress overlap log, LED alert, and red status (still reschedules)",
+    "bool",
+    False,
+    optional=True,
+)
 
 # ── Global ────────────────────────────────────────────────────────────────────
 
@@ -127,6 +134,7 @@ WORKER_SCHEMAS: dict[str, WorkerSchema] = {
             Field("ALERT_TARGET", "LED alert target name",                "str", "general", optional=True),
             Field("MDSTAT_PATH",  "Path to mdstat file",                  "str", "/proc/mdstat", optional=True),
             Field("IGNORE",       "Array names to ignore (comma-sep)",    "list_str", optional=True),
+            _IGNORE_OVERLAP_FIELD,
             _ENABLED_FIELD,
         ],
     ),
@@ -136,6 +144,7 @@ WORKER_SCHEMAS: dict[str, WorkerSchema] = {
             Field("INTERVAL",     "Poll interval (seconds)",              "int", 60),
             Field("ALERT_TARGET", "LED alert target name",                "str", "general", optional=True),
             Field("IGNORE",       "Pool names to ignore (comma-sep)",     "list_str", optional=True),
+            _IGNORE_OVERLAP_FIELD,
             _ENABLED_FIELD,
         ],
     ),
@@ -146,6 +155,7 @@ WORKER_SCHEMAS: dict[str, WorkerSchema] = {
             Field("INTERVAL",  "Health check interval (seconds)",  "int", 30),
             Field("EDIT_MOTD", "Write status to MOTD file",        "bool", False, optional=True),
             Field("MOTD_FILE", "MOTD file path",                   "str", "/etc/motd", optional=True),
+            _IGNORE_OVERLAP_FIELD,
             _ENABLED_FIELD,
         ],
     ),
@@ -153,6 +163,7 @@ WORKER_SCHEMAS: dict[str, WorkerSchema] = {
         "Hot-reload config.json when it changes on disk",
         [
             Field("INTERVAL", "File check interval (seconds)", "int", 5),
+            _IGNORE_OVERLAP_FIELD,
             _ENABLED_FIELD,
         ],
     ),
@@ -162,6 +173,7 @@ WORKER_SCHEMAS: dict[str, WorkerSchema] = {
             Field("INTERVAL",     "Poll interval (seconds)",                 "int", 10),
             Field("ALERT_TARGET", "LED alert target name",                   "str", "general", optional=True),
             Field("LOG_PATH",     "SSH log file (auto-detected if omitted)", "str", optional=True),
+            _IGNORE_OVERLAP_FIELD,
             _ENABLED_FIELD,
         ],
     ),
@@ -171,6 +183,7 @@ WORKER_SCHEMAS: dict[str, WorkerSchema] = {
             Field("INTERVAL",     "Poll interval (seconds)",        "int", 60),
             Field("ALERT_TARGET", "LED alert target name",          "str", "general", optional=True),
             Field("IGNORE",       "Services to ignore (comma-sep)", "list_str", optional=True),
+            _IGNORE_OVERLAP_FIELD,
             _ENABLED_FIELD,
         ],
     ),
@@ -180,6 +193,7 @@ WORKER_SCHEMAS: dict[str, WorkerSchema] = {
             Field("INTERVAL",     "Poll interval (seconds)",                  "int", 60),
             Field("ALERT_TARGET", "LED alert target name",                    "str", "general", optional=True),
             Field("IGNORE",       "Container names to ignore (comma-sep)",    "list_str", optional=True),
+            _IGNORE_OVERLAP_FIELD,
             _ENABLED_FIELD,
         ],
     ),
@@ -189,6 +203,7 @@ WORKER_SCHEMAS: dict[str, WorkerSchema] = {
             Field("INTERVAL",     "Poll interval (seconds)", "int", 3600),
             Field("ALERT_TARGET", "LED alert target name",   "str", "general", optional=True),
             Field("BACKUPS",      "Backup targets",          "named_list", sub_fields=_BACKUP_RAW_ENTRY),
+            _IGNORE_OVERLAP_FIELD,
             _ENABLED_FIELD,
         ],
     ),
@@ -198,6 +213,7 @@ WORKER_SCHEMAS: dict[str, WorkerSchema] = {
             Field("INTERVAL",     "Poll interval (seconds)", "int", 3600),
             Field("ALERT_TARGET", "LED alert target name",   "str", "general", optional=True),
             Field("BACKUPS",      "Borg repositories",       "named_list", sub_fields=_BACKUP_BORG_ENTRY),
+            _IGNORE_OVERLAP_FIELD,
             _ENABLED_FIELD,
         ],
     ),
@@ -206,6 +222,7 @@ WORKER_SCHEMAS: dict[str, WorkerSchema] = {
         [
             Field("INTERVAL", "Tick interval (seconds)", "int", 60),
             Field("JOBS",     "Scheduled jobs",          "named_list", sub_fields=_CRON_JOB_ENTRY),
+            _IGNORE_OVERLAP_FIELD,
             _ENABLED_FIELD,
         ],
     ),
@@ -213,6 +230,7 @@ WORKER_SCHEMAS: dict[str, WorkerSchema] = {
         "Telegram bot — polls for commands and dispatches them",
         [
             Field("INTERVAL", "Polling interval (seconds)", "int", 5),
+            _IGNORE_OVERLAP_FIELD,
             _ENABLED_FIELD,
         ],
     ),
@@ -222,6 +240,7 @@ WORKER_SCHEMAS: dict[str, WorkerSchema] = {
             Field("INTERVAL",  "Reconnect check interval (seconds)",  "int", 30),
             Field("DEVICE",    "Device key from HIK_CONFIG.DEVICES",  "str"),
             Field("USE_REDIS", "Push events to Redis instead of RAM", "bool", False, optional=True),
+            _IGNORE_OVERLAP_FIELD,
             _ENABLED_FIELD,
         ],
     ),
@@ -230,6 +249,7 @@ WORKER_SCHEMAS: dict[str, WorkerSchema] = {
         [
             Field("INTERVAL",  "Poll interval (seconds)",                    "int", 1),
             Field("USE_REDIS", "Consume events from Redis instead of RAM",   "bool", False, optional=True),
+            _IGNORE_OVERLAP_FIELD,
             _ENABLED_FIELD,
         ],
     ),

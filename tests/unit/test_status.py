@@ -18,6 +18,13 @@ def test_worker_color_red_on_error_flag():
     assert entry.color() == "red"
 
 
+def test_worker_color_red_on_overlapped():
+    entry = status.WorkerEntry(name="W:X_main", overlapped=True)
+    assert entry.color() == "red"
+    entry.overlapped = False
+    assert entry.color() == "green"
+
+
 def test_worker_color_yellow_on_warning():
     entry = status.WorkerEntry(name="W:X_main", warning=True)
     assert entry.color() == "yellow"

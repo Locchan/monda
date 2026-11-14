@@ -33,6 +33,7 @@ def _register_test_worker_schema(monkeypatch):
             [
                 Field("INTERVAL", "i", "int", 1),
                 Field("ALERT_TARGET", "t", "str", "general", optional=True),
+                Field("IGNORE_OVERLAP", "io", "bool", False, optional=True),
                 Field("FOO", "f", "str", optional=True),
                 Field("ENABLED", "e", "bool", True, optional=True),
             ],
@@ -160,29 +161,80 @@ def test_overlapped_deadline_errors_and_reschedules(merge_worker, led_dir, monke
     w = W_TestWorker("main", 10)
     w.initialize()
 
-    # Make sleep a no-op and work slow past deadline
-    monkeypatch.setattr(w, "_sleep_until", lambda deadline: "ok")
-    monkeypatch.setattr(w, "_refresh_config", lambda: "ok")
-
-    start = time.monotonic()
-    times = [start, start, start + 20]  # after work, past next_due
-
-    def mono():
-        return times.pop(0) if len(times) > 1 else times[0]
-
-    # Simpler approach: run one loop iteration manually
-    next_due = time.monotonic()
+    start = 1000.0
     interval = 10.0
-    next_due = next_due + interval
-    # pretend work finished late
-    late_now = next_due + 5
-    monkeypatch.setattr(time, "monotonic", lambda: late_now)
-    if interval > 0 and time.monotonic() >= next_due:
-        if w._status_entry is not None:
-            w._status_entry.error = True
-        from monda.utils.led_alert import send_alert
-        send_alert(f"Worker {w.name} overlapped its scheduled deadline; rescheduled.", target="general")
-        next_due = time.monotonic() + interval
-    assert w._status_entry.error is True
-    assert next_due == pytest.approx(late_now + interval)
+    next_due = start + interval
+    monkeypatch.setattr(time, "monotonic", lambda: start + 15)
+    next_due = w._finish_tick(next_due, interval)
+
+    assert w._status_entry.overlapped is True
+    assert w._status_entry.color() == "red"
+    assert next_due == pytest.approx(start + 15 + interval)
+    assert list(led_dir.glob("alert_*.json"))
+
+
+def test_overlapped_clears_after_successful_cycle(merge_worker, led_dir, monkeypatch):
+    merge_worker("W_TestWorker", "main", {"INTERVAL": 10, "ALERT_TARGET": "general"})
+    w = W_TestWorker("main", 10)
+    w.initialize()
+
+    start = 1000.0
+    interval = 10.0
+    next_due = start + interval
+    monkeypatch.setattr(time, "monotonic", lambda: start + 15)
+    next_due = w._finish_tick(next_due, interval)
+    assert w._status_entry.overlapped is True
+    assert w._status_entry.color() == "red"
+
+    # Next cycle finishes before its deadline → green again.
+    scheduled = next_due  # start+15+10; work starts then, deadline = that + interval
+    work_start = next_due
+    next_due = work_start + interval
+    monkeypatch.setattr(time, "monotonic", lambda: work_start + 1)
+    next_due = w._finish_tick(next_due, interval)
+    assert w._status_entry.overlapped is False
+    assert w._status_entry.color() == "green"
+    assert next_due == pytest.approx(work_start + interval)
+    assert next_due == pytest.approx(scheduled + interval)
+
+
+def test_ignore_overlap_skips_alert_and_red(merge_worker, led_dir, monkeypatch, caplog):
+    merge_worker(
+        "W_TestWorker",
+        "main",
+        {"INTERVAL": 10, "ALERT_TARGET": "general", "IGNORE_OVERLAP": True},
+    )
+    w = W_TestWorker("main", 10)
+    w.initialize()
+
+    start = 1000.0
+    interval = 10.0
+    next_due = start + interval
+    monkeypatch.setattr(time, "monotonic", lambda: start + 15)
+    with caplog.at_level("ERROR"):
+        next_due = w._finish_tick(next_due, interval)
+
+    assert w._status_entry.overlapped is False
+    assert w._status_entry.color() == "green"
+    assert next_due == pytest.approx(start + 15 + interval)
+    assert not list(led_dir.glob("alert_*.json"))
+    assert not any("overlapped" in r.getMessage().lower() or "deadline" in r.getMessage().lower()
+                   for r in caplog.records)
+
+
+def test_ignore_overlap_false_still_alerts(merge_worker, led_dir, monkeypatch):
+    merge_worker(
+        "W_TestWorker",
+        "main",
+        {"INTERVAL": 10, "ALERT_TARGET": "general", "IGNORE_OVERLAP": False},
+    )
+    w = W_TestWorker("main", 10)
+    w.initialize()
+
+    start = 1000.0
+    interval = 10.0
+    monkeypatch.setattr(time, "monotonic", lambda: start + 15)
+    w._finish_tick(start + interval, interval)
+    assert w._status_entry.overlapped is True
+    assert w._status_entry.color() == "red"
     assert list(led_dir.glob("alert_*.json"))

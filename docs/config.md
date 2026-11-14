@@ -229,9 +229,11 @@ The default target is `"general"`. See [led.md](led.md) for the wire format.
 Keyed by **worker class name**, then by **instance name**. Instance names must
 be unique within their worker type.
 
-| Key        | Type | Required | Default | Purpose                                |
-|------------|------|----------|---------|----------------------------------------|
-| `INTERVAL` | int  | no       | `10`    | Seconds between `_work()` invocations. |
+| Key              | Type | Required | Default | Purpose                                                                 |
+|------------------|------|----------|---------|-------------------------------------------------------------------------|
+| `INTERVAL`       | int  | no       | `10`    | Seconds between `_work()` invocations.                                  |
+| `IGNORE_OVERLAP` | bool | no       | `false` | If true, deadline overruns still reschedule but skip log, LED, and red. |
+| `ENABLED`        | bool | no       | `true`  | If false, the instance is not started / stops on live reload.           |
 
 ## `JOB_CONFIG` (optional)
 
@@ -258,7 +260,8 @@ one:
   config-check chunks do not accumulate schedule drift. Oversleeping a
   deadline starts the tick immediately. At work start the next deadline is
   set to `last + interval`; finishing after that marks the worker red,
-  alerts, and reschedules to `now + interval`.
+  alerts, and reschedules to `now + interval` (unless `IGNORE_OVERLAP` is
+  true, in which case only the reschedule happens).
 - If `ENABLED` is set to `false` (or the instance is removed), the worker logs
   that it is stopping, exits, and removes its status/MOTD entry. The main loop
   does not resurrect it.

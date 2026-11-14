@@ -8,6 +8,15 @@ def test_every_enabled_worker_has_schema():
     assert missing == []
 
 
+def test_every_worker_schema_has_ignore_overlap():
+    missing = [
+        name
+        for name, schema in WORKER_SCHEMAS.items()
+        if not any(f.key == "IGNORE_OVERLAP" for f in schema.fields)
+    ]
+    assert missing == []
+
+
 def test_every_enabled_job_has_schema():
     missing = [k for k in ENABLED_JOBS if k not in JOB_SCHEMAS]
     assert missing == []
