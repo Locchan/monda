@@ -135,8 +135,16 @@ class Job:
         job_type_config = (read_config()
                            .get("JOB_CONFIG", {})
                            .get(self.job_class_name, {}))
+        # Class-level scalars (MODE, STOREDIR, LED_THRESHOLD, …) apply to every
+        # instance; nested dicts are instance blocks and are skipped here.
+        class_defaults = {
+            k: v for k, v in job_type_config.items()
+            if k != "ENABLED" and not isinstance(v, dict)
+        }
         static_config = job_type_config.get(self._instance_name, {})
-        self.config = {**static_config, **self._runtime_config}
+        if not isinstance(static_config, dict):
+            static_config = {}
+        self.config = {**class_defaults, **static_config, **self._runtime_config}
 
         enabled_in_config = job_type_config.get("ENABLED", True)
         if not enabled_in_config:

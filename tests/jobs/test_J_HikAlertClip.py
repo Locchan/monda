@@ -52,15 +52,16 @@ def test_acquire_rate_limit(cfg_path, tmp_path):
 
 
 def _stub_download(j, tmp_path, monkeypatch, payload=b"CLIPDATA-MORE-THAN-MIN"):
-    import tempfile
     import time
+    import uuid
 
     monkeypatch.setattr(clip_mod.time, "sleep", lambda *_: None)
     monkeypatch.setattr(clip_mod, "_PLAYBACK_LAG", 0.0)
 
     def fake_dl(*a, **k):
         stamp = time.strftime("%Y%m%d_%H%M%S")
-        path = Path(tempfile.gettempdir()) / f"{stamp}_cam4.mp4"
+        # Unique path under the test tmp dir (avoids xdist /tmp collisions).
+        path = tmp_path / f"{stamp}_cam4_{uuid.uuid4().hex[:8]}.mp4"
         path.write_bytes(payload)
         return str(path)
 
@@ -97,8 +98,9 @@ def test_store_mode_writes_under_job_class_instance(cfg_path, tmp_path, monkeypa
     _stub_download(j, tmp_path, monkeypatch, payload=b"CLIPBYTES")
     j._work()
     dest_dir = store / "J_HikAlertClip" / "cam_1"
-    files = list(dest_dir.glob("*_cam4.mp4"))
+    files = list(dest_dir.glob("*.mp4"))
     assert len(files) == 1
+    assert "cam4" in files[0].name
     assert files[0].read_bytes() == b"CLIPBYTES"
     assert list(led.glob("alert_*.json")) == []
 

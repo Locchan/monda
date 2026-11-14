@@ -62,6 +62,19 @@ def test_runtime_config_overrides_static(merge_job):
     assert j.config["FOO"] == "runtime"
 
 
+def test_class_level_scalars_merge_into_instance(merge_job):
+    merge_job("J_TestJob", {
+        "LED_THRESHOLD": 3,
+        "LED_THRESHOLD_PERIOD_SEC": 60,
+        "main": {"FOO": "bar"},
+    })
+    j = J_TestJob("main")
+    assert j.initialize() is True
+    assert j.config["FOO"] == "bar"
+    assert j.config["LED_THRESHOLD"] == 3
+    assert j.config["LED_THRESHOLD_PERIOD_SEC"] == 60
+
+
 def test_class_disabled(merge_job):
     merge_job("J_TestJob", {"ENABLED": False, "main": {"FOO": "x"}})
     j = J_TestJob("main")
