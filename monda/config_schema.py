@@ -243,25 +243,39 @@ class JobSchema:
     fields: list[Field]
 
 
+_JOB_COMMON_FIELDS: list[Field] = [
+    Field("LED_THRESHOLD", "Alert if triggered more than this many times in the period", "int", optional=True),
+    Field("LED_THRESHOLD_PERIOD_SEC", "Sliding window (seconds) for LED_THRESHOLD", "int", optional=True),
+    _ENABLED_FIELD,
+]
+
+_HIK_ALERT_MODE_FIELDS: list[Field] = [
+    Field("MODE", "Operation mode: LED (default) or STORE", "str", "LED", optional=True,
+          choices=lambda: ["LED", "STORE"]),
+    Field("STOREDIR", "Root directory for MODE=STORE (…/JobClass/instance/file)", "str", optional=True),
+]
+
 JOB_SCHEMAS: dict[str, JobSchema] = {
     "J_HikAlertClip": JobSchema(
-        "Download a Hikvision clip around an alert and send it as an LED alert",
+        "Download a Hikvision clip around an alert (LED alert or STORE to disk)",
         [
             Field("HIK_DEVICE",  "Device key from HIK_CONFIG.DEVICES", "str"),
-            Field("MESSAGE",     "Alert message text",                  "str"),
+            Field("MESSAGE",     "Alert message text (required for MODE=LED)", "str", optional=True),
             Field("BEFORE_SEC",  "Seconds of footage before the alert", "int", 10),
             Field("AFTER_SEC",   "Seconds of footage after the alert",  "int", 10),
             Field("CHANNEL",     "ISAPI playback track id",             "str", "101", optional=True),
-            _ENABLED_FIELD,
+            *_HIK_ALERT_MODE_FIELDS,
+            *_JOB_COMMON_FIELDS,
         ],
     ),
     "J_HikAlertSnap": JobSchema(
-        "Capture a Hikvision snapshot and send it as an LED alert",
+        "Capture a Hikvision snapshot (LED alert or STORE to disk)",
         [
             Field("HIK_DEVICE", "Device key from HIK_CONFIG.DEVICES", "str"),
-            Field("MESSAGE",    "Alert message text",                  "str"),
+            Field("MESSAGE",    "Alert message text (required for MODE=LED)", "str", optional=True),
             Field("CHANNEL",    "ISAPI channel number",                "str", "101", optional=True),
-            _ENABLED_FIELD,
+            *_HIK_ALERT_MODE_FIELDS,
+            *_JOB_COMMON_FIELDS,
         ],
     ),
     "J_HikSnap": JobSchema(
@@ -270,7 +284,7 @@ JOB_SCHEMAS: dict[str, JobSchema] = {
             Field("HIK_DEVICE", "Device key from HIK_CONFIG.DEVICES", "str"),
             Field("DEST_DIR",   "Directory to save snapshots",        "str"),
             Field("CHANNEL",    "ISAPI channel number",               "str", "101", optional=True),
-            _ENABLED_FIELD,
+            *_JOB_COMMON_FIELDS,
         ],
     ),
     "J_HikSnapArch": JobSchema(
@@ -278,7 +292,7 @@ JOB_SCHEMAS: dict[str, JobSchema] = {
         [
             Field("SRC_DIR",  "Source snapshot directory",     "str"),
             Field("DEST_DIR", "Destination archive directory", "str"),
-            _ENABLED_FIELD,
+            *_JOB_COMMON_FIELDS,
         ],
     ),
 }

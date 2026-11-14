@@ -8,9 +8,9 @@ from urllib.parse import quote
 from zoneinfo import ZoneInfo
 
 from monda.classes.base.Job import Job
-from monda.utils.led_alert import send_alert
 from monda.utils.logger import get_logger
 from monda.utils.misc import read_config
+
 
 logger: logging.Logger = get_logger()
 
@@ -96,6 +96,24 @@ class J_HikAlertClip(Job):
         return True
 
     def _initialize(self) -> bool:
+        mode = str(self.config.get("MODE", "LED")).upper()
+        if mode not in ("LED", "STORE"):
+            logger.error(f"MODE must be LED or STORE, got {mode!r}.")
+            return False
+        if mode == "STORE":
+            store_dir = self.config.get("STOREDIR")
+            if not store_dir:
+                logger.error("MODE=STORE requires STOREDIR.")
+                return False
+            try:
+                os.makedirs(store_dir, exist_ok=True)
+            except OSError as e:
+                logger.error(f"Could not create STOREDIR {store_dir!r}: {e}")
+                return False
+        elif "MESSAGE" not in self.config:
+            logger.error("MODE=LED requires MESSAGE.")
+            return False
+
         config = read_config()
         hik_config = config.get("HIK_CONFIG", {})
 
@@ -170,7 +188,7 @@ class J_HikAlertClip(Job):
             device["ADDRESS"], port, creds["USERNAME"], creds["PASSWORD"],
             channel, start, end, device_key,
         )
-        send_alert(self.config["MESSAGE"], target="camera_alerts", files=[tmp_path])
+        self._store_or_alert(tmp_path, message=self.config.get("MESSAGE", ""))
 
     def _wait_until(self, end: datetime) -> None:
         delay = end.timestamp() - time.time()
@@ -198,10 +216,10 @@ class J_HikAlertClip(Job):
 
         stamp = self._alert_time.strftime("%Y%m%d_%H%M%S")
         safe_key = device_key.replace(os.sep, "_")
-        prefix = f"hikclip_{safe_key}_{stamp}_"
+        # Date first so lexicographic order matches chronology.
+        dest = os.path.join(tempfile.gettempdir(), f"{stamp}_{safe_key}.mp4")
         for attempt in range(1, _DOWNLOAD_ATTEMPTS + 1):
-            fd, dest = tempfile.mkstemp(suffix=".mp4", prefix=prefix)
-            os.close(fd)
+            _unlink(dest)
             try:
                 _record_rtsp(url, dest, cap, user, password)
                 duration = _media_duration(dest)

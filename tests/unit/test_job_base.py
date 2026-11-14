@@ -34,6 +34,8 @@ def _register_test_job_schema(monkeypatch):
             "test",
             [
                 Field("FOO", "f", "str"),
+                Field("LED_THRESHOLD", "t", "int", optional=True),
+                Field("LED_THRESHOLD_PERIOD_SEC", "p", "int", optional=True),
                 Field("ENABLED", "e", "bool", True, optional=True),
             ],
         ),
@@ -88,3 +90,58 @@ def test_run_failure_alerts(merge_job, led_dir):
     entry = status.snapshot()["jobs"]["J_TestJob/main"]
     assert entry["last_run_ok"] is False
     assert list(led_dir.glob("alert_*.json"))
+
+
+def _alert_messages(led_dir):
+    import json
+    return [
+        json.loads(p.read_text(encoding="utf-8"))["message"]
+        for p in sorted(led_dir.glob("alert_*.json"))
+    ]
+
+
+def test_led_threshold_alerts_when_exceeded(merge_job, led_dir):
+    merge_job("J_TestJob", {
+        "main": {
+            "FOO": "x",
+            "LED_THRESHOLD": 2,
+            "LED_THRESHOLD_PERIOD_SEC": 60,
+        },
+    })
+    for _ in range(3):
+        j = J_TestJob("main")
+        assert j.initialize()
+        t = j.run()
+        assert t is not None
+        t.join(timeout=2)
+
+    msgs = _alert_messages(led_dir)
+    assert any(
+        m == "J:Test_main: Triggered 3 times in last 60 seconds." for m in msgs
+    ), msgs
+
+
+def test_led_threshold_no_alert_at_or_below_limit(merge_job, led_dir):
+    merge_job("J_TestJob", {
+        "main": {
+            "FOO": "x",
+            "LED_THRESHOLD": 3,
+            "LED_THRESHOLD_PERIOD_SEC": 60,
+        },
+    })
+    for _ in range(3):
+        j = J_TestJob("main")
+        assert j.initialize()
+        t = j.run()
+        t.join(timeout=2)
+
+    assert _alert_messages(led_dir) == []
+
+
+def test_led_threshold_inactive_without_both_keys(merge_job, led_dir):
+    merge_job("J_TestJob", {"main": {"FOO": "x", "LED_THRESHOLD": 0}})
+    j = J_TestJob("main")
+    assert j.initialize()
+    t = j.run()
+    t.join(timeout=2)
+    assert _alert_messages(led_dir) == []

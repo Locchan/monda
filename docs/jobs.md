@@ -169,22 +169,40 @@ enabled jobs; `/trigger J_SomeJob/nightly KEY=VALUE` runs that one, with the
 extra arguments overriding config for that run. See
 [workers.md](workers.md#w_telegrambot).
 
+## Job LED threshold (all jobs)
+
+Any job instance may set both of these optional fields:
+
+| Key                        | Type | Required | Purpose |
+|----------------------------|------|----------|---------|
+| `LED_THRESHOLD`            | int  | no       | Alert when the job is triggered more than this many times in the window. |
+| `LED_THRESHOLD_PERIOD_SEC` | int  | no       | Sliding window length in seconds. |
+
+Both must be set together. On each run, MonDa records the trigger; if the
+count in the window exceeds `LED_THRESHOLD`, it sends a `general` LED alert:
+
+`{JOB_NAME}: Triggered X times in last Y seconds.`
+
 ## `J_HikAlertSnap`
 
-Grabs a snapshot from a Hikvision camera and sends it as an LED alert.
+Grabs a snapshot from a Hikvision camera. Default `MODE` is `LED` (send as an
+LED alert). With `MODE=STORE`, a timestamped JPEG is written under
+`STOREDIR/J_HikAlertSnap/<instance>/` (created in `/tmp` then moved) with no
+media LED alert.
 
 | Key          | Type   | Required | Default | Source  | Purpose                                             |
 |--------------|--------|----------|---------|---------|-----------------------------------------------------|
 | `HIK_DEVICE` | string | yes      | —       | either  | Name of an entry under `HIK_CONFIG.DEVICES`.        |
-| `MESSAGE`    | string | yes      | —       | runtime | Alert text forwarded to the LED integration.        |
+| `MESSAGE`    | string | for LED  | —       | runtime | Alert text forwarded to the LED integration.        |
+| `MODE`       | string | no       | `LED`   | either  | `LED` (alert) or `STORE` (save under `STOREDIR`).   |
+| `STOREDIR`   | string | for STORE| —       | either  | Root directory for `MODE=STORE`.                    |
 | `CHANNEL`    | string | no       | `"101"` | either  | ISAPI streaming channel (101 = camera 1 main stream). |
 
 Snapshot endpoint: `<proto>://<address>:<port>/ISAPI/Streaming/channels/<CHANNEL>/picture`
 with HTTP Digest auth from the device's credentials.
 
-The snapshot is saved as a temporary `.jpg`, then handed to `send_alert`
-with `target="camera_alerts"`, which moves it into that target's `BASEDIR`
-and writes the LED-format JSON descriptor.
+In `LED` mode the snapshot is saved as a temporary `.jpg`, then handed to
+`send_alert` with `target="camera_alerts"`.
 
 ### Rate limiting
 
@@ -212,13 +230,15 @@ if J_HikAlertSnap.acquire("cam_front"):
 
 ## `J_HikAlertClip`
 
-Downloads a recorded clip from a Hikvision camera or NVR and sends it as an
-LED alert. The clip spans `BEFORE_SEC` seconds before the alert and
-`AFTER_SEC` seconds after it. Playback asks for 8 more seconds so the last
-keyframe is included. The job sleeps until 10 seconds after that playback
-end, then tries the download every 10 seconds, up to 10 times. Failed
-attempts are not logged. The sleep and the retries run in the job thread;
-the caller does not block.
+Downloads a recorded clip from a Hikvision camera or NVR. Default `MODE` is
+`LED` (send as an LED alert). With `MODE=STORE`, a timestamped MP4 is written
+under `STOREDIR/J_HikAlertClip/<instance>/` (created in `/tmp` then moved)
+with no media LED alert. The
+clip spans `BEFORE_SEC` seconds before the alert and `AFTER_SEC` seconds
+after it. Playback asks for 8 more seconds so the last keyframe is included.
+The job sleeps until 10 seconds after that playback end, then tries the
+download every 10 seconds, up to 10 times. Failed attempts are not logged.
+The sleep and the retries run in the job thread; the caller does not block.
 
 The camera or NVR must actually be recording (SD card, NVR disk). The
 download asks the device for that time range; it does not record a live
@@ -227,7 +247,9 @@ stream itself.
 | Key          | Type   | Required | Default | Source  | Purpose                                                        |
 |--------------|--------|----------|---------|---------|----------------------------------------------------------------|
 | `HIK_DEVICE` | string | yes      | —       | either  | Name of an entry under `HIK_CONFIG.DEVICES`.                   |
-| `MESSAGE`    | string | yes      | —       | runtime | Alert text forwarded to the LED integration.                   |
+| `MESSAGE`    | string | for LED  | —       | runtime | Alert text forwarded to the LED integration.                   |
+| `MODE`       | string | no       | `LED`   | either  | `LED` (alert) or `STORE` (save under `STOREDIR`).              |
+| `STOREDIR`   | string | for STORE| —       | either  | Root directory for `MODE=STORE`.                               |
 | `BEFORE_SEC` | int    | no       | `10`    | either  | Seconds of footage to include before the alert.                |
 | `AFTER_SEC`  | int    | no       | `10`    | either  | Seconds after the alert to include. The job waits this long.   |
 | `CHANNEL`    | string | no       | `"101"` | either  | Playback track id. Same numbering as snapshots (101 = camera 1 main). |
@@ -250,8 +272,9 @@ Times are the config `TZ` wall clock, written as `YYYYMMDDTHHMMSSZ` because
 that is the form the NVR's playback URL uses. The range is widened by 8 seconds on each
 side, and playback starts on the keyframe at or before `starttime`, so every
 second between the times sent to the job is inside the file. `ffmpeg` copies
-that stream to a temporary `.mp4` and hands it to `send_alert` with
-`target="camera_alerts"`. `ffmpeg` and `ffprobe` must be on `PATH`.
+that stream to a temporary `.mp4` and, in `LED` mode, hands it to
+`send_alert` with `target="camera_alerts"`. `ffmpeg` and `ffprobe` must be
+on `PATH`.
 
 The NVR sometimes stops sending before `endtime`, or returns 400 until the
 range is old enough. A clip shorter than the requested window plus 8 seconds
@@ -309,7 +332,7 @@ The directory is created if it does not exist.
 | `DEST_DIR`   | string | yes      | —       | Directory to write the snapshot into.                      |
 | `CHANNEL`    | string | no       | `"101"` | ISAPI streaming channel (101 = camera 1 main stream).      |
 
-Filename format: `<device_key>_YYYYMMDD_HHMMSS.jpg`.
+Filename format: `YYYYMMDD_HHMMSS_<device_key>.jpg` (date-first for sorting).
 
 Typically fired on a schedule via `W_Cron`. The `DEST_DIR` can then be
 archived by `J_HikSnapArch`.

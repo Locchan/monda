@@ -21,14 +21,7 @@ def _load(cfg_path, tmp_path):
     return Path(data["LED_TARGETS"]["camera_alerts"]["BASEDIR"])
 
 
-def test_initialize_and_work(cfg_path, tmp_path, monkeypatch):
-    led = _load(cfg_path, tmp_path)
-    j = J_HikAlertSnap("cam4", {
-        "HIK_DEVICE": "cam4",
-        "MESSAGE": "motion",
-    })
-    assert j.initialize() is True
-
+def _ok_jpeg(monkeypatch):
     class Resp:
         status_code = 200
         content = b"JPEG"
@@ -37,8 +30,48 @@ def test_initialize_and_work(cfg_path, tmp_path, monkeypatch):
         "monda.classes.jobs.hik.J_HikAlertSnap.requests.get",
         lambda *a, **k: Resp(),
     )
+
+
+def test_initialize_and_work(cfg_path, tmp_path, monkeypatch):
+    led = _load(cfg_path, tmp_path)
+    j = J_HikAlertSnap("cam4", {
+        "HIK_DEVICE": "cam4",
+        "MESSAGE": "motion",
+    })
+    assert j.initialize() is True
+    _ok_jpeg(monkeypatch)
     j._work()
     assert list(led.glob("alert_*.json"))
+
+
+def test_store_mode_writes_under_job_class_instance(cfg_path, tmp_path, monkeypatch):
+    led = _load(cfg_path, tmp_path)
+    store = tmp_path / "store"
+    j = J_HikAlertSnap("cam_1", {
+        "HIK_DEVICE": "cam4",
+        "MODE": "STORE",
+        "STOREDIR": str(store),
+    })
+    assert j.initialize() is True
+    _ok_jpeg(monkeypatch)
+    j._work()
+    dest_dir = store / "J_HikAlertSnap" / "cam_1"
+    files = list(dest_dir.glob("*_cam4.jpg"))
+    assert len(files) == 1
+    assert files[0].read_bytes() == b"JPEG"
+    assert list(led.glob("alert_*.json")) == []
+
+
+def test_store_mode_requires_storedir(cfg_path, tmp_path):
+    _load(cfg_path, tmp_path)
+    j = J_HikAlertSnap("cam_1", {"HIK_DEVICE": "cam4", "MODE": "STORE"})
+    assert j.initialize() is False
+
+
+def test_led_mode_requires_message(cfg_path, tmp_path):
+    _load(cfg_path, tmp_path)
+    j = J_HikAlertSnap("cam4", {"HIK_DEVICE": "cam4", "MODE": "LED"})
+    assert j.initialize() is False
 
 
 def test_acquire_rate_limit(cfg_path, tmp_path):

@@ -50,7 +50,7 @@ def test_work_saves_snapshot(cfg_path, tmp_path, monkeypatch):
         lambda *a, **k: Resp(),
     )
     j._work()
-    assert any(dest.glob("cam4_*.jpg"))
+    assert any(dest.glob("*_cam4.jpg"))
 
 
 def test_work_http_failure(cfg_path, tmp_path, monkeypatch):

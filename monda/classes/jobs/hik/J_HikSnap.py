@@ -1,5 +1,7 @@
 import logging
 import os
+import shutil
+import tempfile
 from datetime import datetime
 
 import requests
@@ -69,9 +71,14 @@ class J_HikSnap(Job):
         else:
             raise last_exc
 
-        os.makedirs(dest_dir, exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        dest_path = os.path.join(dest_dir, f"{device_key}_{timestamp}.jpg")
-        with open(dest_path, "wb") as f:
+        safe_key = device_key.replace(os.sep, "_")
+        # Date first so lexicographic order matches chronology.
+        name = f"{timestamp}_{safe_key}.jpg"
+        tmp_path = os.path.join(tempfile.gettempdir(), name)
+        with open(tmp_path, "wb") as f:
             f.write(response.content)
+        os.makedirs(dest_dir, exist_ok=True)
+        dest_path = os.path.join(dest_dir, name)
+        shutil.move(tmp_path, dest_path)
         self._info(f"Snapshot saved to {dest_path}")

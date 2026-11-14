@@ -7,9 +7,9 @@ import requests
 from requests.auth import HTTPDigestAuth
 
 from monda.classes.base.Job import Job
-from monda.utils.led_alert import send_alert
 from monda.utils.logger import get_logger
 from monda.utils.misc import read_config
+
 
 logger: logging.Logger = get_logger()
 
@@ -36,6 +36,24 @@ class J_HikAlertSnap(Job):
         return True
 
     def _initialize(self) -> bool:
+        mode = str(self.config.get("MODE", "LED")).upper()
+        if mode not in ("LED", "STORE"):
+            logger.error(f"MODE must be LED or STORE, got {mode!r}.")
+            return False
+        if mode == "STORE":
+            store_dir = self.config.get("STOREDIR")
+            if not store_dir:
+                logger.error("MODE=STORE requires STOREDIR.")
+                return False
+            try:
+                os.makedirs(store_dir, exist_ok=True)
+            except OSError as e:
+                logger.error(f"Could not create STOREDIR {store_dir!r}: {e}")
+                return False
+        elif "MESSAGE" not in self.config:
+            logger.error("MODE=LED requires MESSAGE.")
+            return False
+
         config = read_config()
         hik_config = config.get("HIK_CONFIG", {})
 
@@ -71,20 +89,32 @@ class J_HikAlertSnap(Job):
         port = device.get("PORT", "80")
         channel = self.config.get("CHANNEL", "101")
         snap_url = f"{proto}://{device['ADDRESS']}:{port}/ISAPI/Streaming/channels/{channel}/picture"
-        message = self.config["MESSAGE"]
+        message = self.config.get("MESSAGE", "")
 
         self._info(f"Requesting snapshot from {snap_url}")
         response = requests.get(snap_url, auth=auth, timeout=10)
         if response.status_code != 200:
             raise RuntimeError(f"Snapshot request failed: HTTP {response.status_code}")
 
-        fd, tmp_path = tempfile.mkstemp(suffix=".jpg", prefix="hiksnap_")
+        stamp = time.strftime("%Y%m%d_%H%M%S")
+        safe_key = device_key.replace(os.sep, "_")
+        # Date first so lexicographic order matches chronology.
+        tmp_path = os.path.join(tempfile.gettempdir(), f"{stamp}_{safe_key}.jpg")
+        if os.path.exists(tmp_path):
+            tmp_path = os.path.join(
+                tempfile.gettempdir(),
+                f"{stamp}_{safe_key}_{int(time.time() * 1000) % 1000}.jpg",
+            )
+
         try:
-            os.write(fd, response.content)
-            os.close(fd)
+            with open(tmp_path, "wb") as f:
+                f.write(response.content)
         except BaseException:
-            os.close(fd)
-            os.unlink(tmp_path)
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
             raise
 
-        send_alert(message, target="camera_alerts", files=[tmp_path])
+        self._store_or_alert(tmp_path, message=message)
+

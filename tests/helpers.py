@@ -32,6 +32,7 @@ def reset_monda_singletons() -> None:
     status._config_reloads.clear()
     status._pending_sleep_until.clear()
     Job.disabled_jobs.clear()
+    Job._trigger_times.clear()
 
 
 def write_config_file(path: Path, data: dict[str, Any]) -> Path:

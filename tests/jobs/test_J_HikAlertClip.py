@@ -51,6 +51,22 @@ def test_acquire_rate_limit(cfg_path, tmp_path):
     assert J_HikAlertClip.acquire("cam4") is False
 
 
+def _stub_download(j, tmp_path, monkeypatch, payload=b"CLIPDATA-MORE-THAN-MIN"):
+    import tempfile
+    import time
+
+    monkeypatch.setattr(clip_mod.time, "sleep", lambda *_: None)
+    monkeypatch.setattr(clip_mod, "_PLAYBACK_LAG", 0.0)
+
+    def fake_dl(*a, **k):
+        stamp = time.strftime("%Y%m%d_%H%M%S")
+        path = Path(tempfile.gettempdir()) / f"{stamp}_cam4.mp4"
+        path.write_bytes(payload)
+        return str(path)
+
+    monkeypatch.setattr(j, "_download_clip", fake_dl)
+
+
 def test_work_with_mocked_download(cfg_path, tmp_path, monkeypatch):
     led = _load(cfg_path, tmp_path)
     j = J_HikAlertClip("cam4", {
@@ -61,42 +77,39 @@ def test_work_with_mocked_download(cfg_path, tmp_path, monkeypatch):
         "AFTER_SEC": 1,
     })
     assert j.initialize()
-
-    # Bypass RTSP/ffmpeg entirely: stub the private download helper if present,
-    # otherwise stub _work's network side by replacing subprocess and sleeps.
-    monkeypatch.setattr(clip_mod.time, "sleep", lambda *_: None)
-    monkeypatch.setattr(clip_mod, "_PLAYBACK_LAG", 0.0)
-    monkeypatch.setattr(clip_mod, "_DOWNLOAD_ATTEMPTS", 1)
-    monkeypatch.setattr(clip_mod, "_MIN_BYTES", 1)
-    monkeypatch.setattr(clip_mod, "_RETRY_DELAY_S", 0)
-
-    def fake_run(cmd, **kwargs):
-        # Always write a dummy outfile for any ffmpeg invocation.
-        out = cmd[-1] if isinstance(cmd, (list, tuple)) else None
-        if out and not str(out).startswith("-"):
-            Path(out).write_bytes(b"CLIPDATA-MORE-THAN-MIN")
-        return type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})()
-
-    monkeypatch.setattr(clip_mod.subprocess, "run", fake_run)
-
-    # If job uses Popen instead of run, also stub that.
-    class FakePopen:
-        def __init__(self, *a, **k):
-            self.returncode = 0
-        def communicate(self, *a, **k):
-            return ("", "")
-        def wait(self):
-            return 0
-
-    monkeypatch.setattr(clip_mod.subprocess, "Popen", FakePopen)
-
-    # Prefer stubbing a high-level method if available
-    if hasattr(j, "_download_clip"):
-        def fake_dl(*a, **k):
-            path = tmp_path / "clip.mp4"
-            path.write_bytes(b"CLIPDATA-MORE-THAN-MIN")
-            return str(path)
-        monkeypatch.setattr(j, "_download_clip", fake_dl)
-
+    _stub_download(j, tmp_path, monkeypatch)
     j._work()
     assert list(led.glob("alert_*.json"))
+
+
+def test_store_mode_writes_under_job_class_instance(cfg_path, tmp_path, monkeypatch):
+    led = _load(cfg_path, tmp_path)
+    store = tmp_path / "store"
+    j = J_HikAlertClip("cam_1", {
+        "HIK_DEVICE": "cam4",
+        "MODE": "STORE",
+        "STOREDIR": str(store),
+        "ALERT_TIME": datetime.now().isoformat(),
+        "BEFORE_SEC": 1,
+        "AFTER_SEC": 1,
+    })
+    assert j.initialize()
+    _stub_download(j, tmp_path, monkeypatch, payload=b"CLIPBYTES")
+    j._work()
+    dest_dir = store / "J_HikAlertClip" / "cam_1"
+    files = list(dest_dir.glob("*_cam4.mp4"))
+    assert len(files) == 1
+    assert files[0].read_bytes() == b"CLIPBYTES"
+    assert list(led.glob("alert_*.json")) == []
+
+
+def test_store_mode_requires_storedir(cfg_path, tmp_path):
+    _load(cfg_path, tmp_path)
+    j = J_HikAlertClip("cam_1", {
+        "HIK_DEVICE": "cam4",
+        "MODE": "STORE",
+        "ALERT_TIME": datetime.now().isoformat(),
+        "BEFORE_SEC": 1,
+        "AFTER_SEC": 1,
+    })
+    assert j.initialize() is False
